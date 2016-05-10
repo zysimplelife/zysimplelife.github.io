@@ -6,11 +6,11 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>Coding</title>
-  <meta name="description" content="">
+  <title>Create your work environment with docker </title>
+  <meta name="description" content="create the docker machine">
 
   <link rel="stylesheet" href="/css/main.css">
-  <link rel="canonical" href="http://zysimplelife.github.io/">
+  <link rel="canonical" href="http://zysimplelife.github.io/docker/2016/05/09/HowToUseJekyll.html">
   <link rel="alternate" type="application/rss+xml" title="Coding" href="http://zysimplelife.github.io/feed.xml">
 </head>
 
@@ -54,33 +54,37 @@
 
     <div class="page-content">
       <div class="wrapper">
-        <div class="home">
+        <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
 
-  <h1 class="page-heading">Posts</h1>
+  <header class="post-header">
+    <h1 class="post-title" itemprop="name headline">Create your work environment with docker </h1>
+    <p class="post-meta"><time datetime="2016-05-09T15:16:00+00:00" itemprop="datePublished">May 9, 2016</time></p>
+  </header>
 
-  <ul class="post-list">
-    
-      <li>
-        <span class="post-meta">May 9, 2016</span>
+  <div class="post-content" itemprop="articleBody">
+    <p>create the docker machine</p>
 
-        <h2>
-          <a class="post-link" href="/jekyll/update/2016/05/09/welcome-to-jekyll.html">Welcome to Jekyll!</a>
-        </h2>
-      </li>
-    
-      <li>
-        <span class="post-meta">May 9, 2016</span>
+<pre>
+docker-machine create -d virtualbox dev
+</pre>
 
-        <h2>
-          <a class="post-link" href="/docker/2016/05/09/HowToUseJekyll.html">Create your work environment with docker </a>
-        </h2>
-      </li>
-    
-  </ul>
+<p>create a docker volume according to https://github.com/CWSpear/local-persist</p>
+<pre>
+docker run -d \
+    -v /run/docker/plugins/:/run/docker/plugins/ \
+    -v /path/to/where/you/want/data/volume/:/path/to/where/you/want/data/volume\ cwspear/docker-local-persist-volume-plugin
 
-  <p class="rss-subscribe">subscribe <a href="/feed.xml">via RSS</a></p>
+docker volume create -d local-persist -o mountpoint=[your workspace path] --name=workspace
+</pre>
 
-</div>
+<p>work with that, for example</p>
+<pre>
+docker run -it -v workspace:/workspace -P jekyll/jekyll sh
+</pre>
+
+  </div>
+
+</article>
 
       </div>
     </div>
