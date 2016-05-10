@@ -1,9 +1,10 @@
 ---
 layout: post
-title:  "Why Jaxb need Object factory"
-date:   5/10/2016 9:50:01 AM 
-categories: WebServices
+title:  "Why JAXB need Object factory "
+date:   2016-05-10 00:16:00 +0000
+categories: WebService
 ---
+
 
 
 Oracle docs say:
