@@ -37,7 +37,7 @@ jekyll serve
 </pre>
 
 
-visit your server 
+visit your server http://your.boot2docer.machine.ip:4000   for example 
 <pre>
-http://[your boot2docer machine ip]:4000
+http://192.168.99.100:4000
 </pre>
