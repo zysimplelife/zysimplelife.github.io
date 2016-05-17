@@ -1,7 +1,7 @@
 ---
 layout: post
-title:  "Nice to use OQL during trouble shooting"
-date:   2016-05-10 00:16:00 +0000
+title:  "How to use persistently install docker volume plugin in boot2docker"
+date:   2016-05-17 00:16:00 +0000
 categories: JAVA
 ---
 
@@ -33,12 +33,12 @@ select file.path.toString() from java.io.File file
 Here are an examples with I used to find those objects I am interesting in. 
 
 
-- Find all threadpool in NAMED 
+- Find all threadpool with named 
 <pre>
 select x , x.threadFactory.threadName from java.util.concurrent.ThreadPoolExecutor x where classof(x.threadFactory).name.contains("Named")
 </pre>
 
-- Find all failed response in AKKA 
+- Find all failed response in NAC 
 <pre>
 select x.exception.detailMessage from scala.util.Failure x
 </pre>
