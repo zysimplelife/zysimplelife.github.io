@@ -25,7 +25,7 @@ I want to add the installation script into bootsync.sh file to make a new instal
 
 ### local-persist plugin ###
 
-[Local persist](https://github.com/CWSpear/local-persist) is an good plugin which is useful for small project. 
+[Local persist](https://github.com/CWSpear/local-persist) is an useful plugin which for small project. 
 
 ### steps ###
 - Download binary
@@ -37,7 +37,7 @@ chmod +x local-persist-linux-amd64
 
 - start this service in bootsync.sh
 <pre>
-echo "sudo /var/lib/boot2docker/plugins/local-persist-linux-amd64 > /var/log/persist.log & " >> /var/lib/boot2docker/bootsync.sh
+echo "sudo /var/lib/boot2docker/plugins/local-persist-linux-amd64 > /var/log/persist.log & " | sudo tee /var/lib/boot2docker/bootsync.sh
 </pre>
 
 - restart boot2docker or manually start the service 
