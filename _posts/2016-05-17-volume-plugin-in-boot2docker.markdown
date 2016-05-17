@@ -1,12 +1,12 @@
 ---
 layout: post
-title:  "How to use persistently install docker volume plugin in boot2docker"
+title:  "How to permanently install docker volume plugin in boot2docker"
 date:   2016-05-17 00:16:00 +0000
 categories: JAVA
 ---
 
 ### Introduction ###
-From version 1.8, docker provide new volume persistence feature via volume plugin which makes it available to integration with 3rd part persistence solution including both local and cloud storage.  User can install and use 3rd volume plugin like flocker to help build their persistent solution.  Details can be found from website of those 3pps 
+From version 1.8, docker provide new volume feature via volume plugin which makes it available to integration with 3rd part persistence solution including both local and cloud storage.  User can install and use 3rd volume plugin like flocker to help build their persistent solution.  Details can be found from websites. 
 
 - [rexray](https://github.com/emccode/rexray)
 - [Flocker](https://clusterhq.com/flocker/introduction/) 
