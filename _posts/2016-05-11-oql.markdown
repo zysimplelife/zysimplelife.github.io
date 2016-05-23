@@ -15,6 +15,11 @@ It seem different version of OQL has different syntax and I am trying to use the
 - [VisualVM](https://visualvm.java.net/oqlhelp.html "VisualVM Helper") 
 - [Memory Analyzer](https://visualvm.java.net/oqlhelp.html "VisualVM Helper") 
 
+### How to get the memory dump file ###
+
+<pre>
+/opt/jdk/bin/jmap  -dump:format=b,file=dump [process ID] 
+</pre>
 
 ### Base Usage ###
 
