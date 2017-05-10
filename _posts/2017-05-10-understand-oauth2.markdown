@@ -60,8 +60,175 @@ After put all roles into right place, the process become quite easy to understan
 -  It is up to "MySite" how to use the User Information.
 
 
- 
+#### Authorization Grant ####
+
+After understanding the general process, we should focus on the important part, Authorization Grant. The reason of saying it is the important part is because this is how client communicate with Authorization. In brief, it process includes Four types for different scenarios. 
+
+- Authorization Code
+- Implicit
+- Resource Owner Password Credentials
+- Client Credentials
+
+##### Authorization Code #####
+
+Authorization is considered as the most completed solution for granting authorization. It based on redirect flow and hide the token in client. The flow illustrated includes the following steps:
+
+<pre>
+     +----------+
+     | Resource |
+     |   Owner  |
+     |          |
+     +----------+
+          ^
+          |
+         (B)
+     +----|-----+          Client Identifier      +---------------+
+     |         -+----(A)-- & Redirection URI ---->|               |
+     |  User-   |                                 | Authorization |
+     |  Agent  -+----(B)-- User authenticates --->|     Server    |
+     |          |                                 |               |
+     |         -+----(C)-- Authorization Code ---<|               |
+     +-|----|---+                                 +---------------+
+       |    |                                         ^      v
+      (A)  (C)                                        |      |
+       |    |                                         |      |
+       ^    v                                         |      |
+     +---------+                                      |      |
+     |         |>---(D)-- Authorization Code ---------'      |
+     |  Client |          & Redirection URI                  |
+     |         |                                             |
+     |         |<---(E)----- Access Token -------------------'
+     +---------+       (w/ Optional Refresh Token)
+	
+</pre>
+
+
+- Client : MySite
+- User-Agent : Web Browser
+- Resource Owner : User who has Facebook account
+- Authorization Server : Facebook
+
+
+Again, let put different roles into corresponding place as above and go thought the process base on that.
+
+- MySite redirect URI to Facebook authentication Server and let User input username and password. 
+- User use Browser to input username and password and Facebook return authorization code if everything goes well 
+- Notice that the authorization code will be redirect by browser to MySite. 
+- Then, MySite use this code to exchange for access token from authorization and continue access user information
+
+
+**I want to high light the authorization code and why it seem more safe. The key point from my understanding is, Web Browser will never have the information of Access Token in such flow. Because exposure of Access Token make it become vulnerable.**
+
+
+
+##### Implicit Grant #####
+
+The implicit grant type is used for the scenario that you can't have client code run in server side.  These clients are typically implemented in a browser using a scripting language such as JavaScript. 
+
+<pre>
+     +----------+
+     | Resource |
+     |  Owner   |
+     |          |
+     +----------+
+          ^
+          |
+         (B)
+     +----|-----+          Client Identifier     +---------------+
+     |         -+----(A)-- & Redirection URI --->|               |
+     |  User-   |                                | Authorization |
+     |  Agent  -|----(B)-- User authenticates -->|     Server    |
+     |          |                                |               |
+     |          |<---(C)--- Redirection URI ----<|               |
+     |          |          with Access Token     +---------------+
+     |          |            in Fragment
+     |          |                                +---------------+
+     |          |----(D)--- Redirection URI ---->|   Web-Hosted  |
+     |          |          without Fragment      |     Client    |
+     |          |                                |    Resource   |
+     |     (F)  |<---(E)------- Script ---------<|               |
+     |          |                                +---------------+
+     +-|--------+
+       |    |
+      (A)  (G) Access Token
+       |    |
+       ^    v
+     +---------+
+     |         |
+     |  Client |
+     |         |
+     +---------+
+</pre>
+
+
+- Client : MySite
+- User-Agent : Web Browser
+- Resource Owner : User who has Facebook account
+- Authorization Server : Facebook
+- Web-Hosted Client Resource : Java Script in MySite
+
+
+Web-Hosted Client Resource could be some JavaScript code from MySite which can only run in Web Browser. the details work flow is similar with Authorization Code.
+
+
+##### Resource Owner Password Credentials Grant #####
+
+This method is used for the scenario that client and authorization server are in same organization. For example SSO solution for several web system in one site.  
+
+
+<pre>
+     +----------+
+     | Resource |
+     |  Owner   |
+     |          |
+     +----------+
+          v
+          |    Resource Owner
+         (A) Password Credentials
+          |
+          v
+     +---------+                                  +---------------+
+     |         |>--(B)---- Resource Owner ------->|               |
+     |         |         Password Credentials     | Authorization |
+     | Client  |                                  |     Server    |
+     |         |<--(C)---- Access Token ---------<|               |
+     |         |    (w/ Optional Refresh Token)   |               |
+     +---------+                                  +---------------+
+</pre>
+
+
+- Client : MySite
+- Resource Owner : User who has Facebook account
+- Authorization Server : Facebook
+
+In this work flow, user will type username and password directly in MySite which will use it to apply for access token. **If so, MySite will have all the Facebook username password information for this User, which is quite unsafe**
+
+
+##### Client Credentials Grant #####
+
+This is the simplest but most unsafe way to get access token. It will be only used when the client is in same system. if you are working for a small system but want to an authorization feature, it is one of the good choice.
+
+<pre>
+     +---------+                                  +---------------+
+     |         |                                  |               |
+     |         |>--(A)- Client Authentication --->| Authorization |
+     | Client  |                                  |     Server    |
+     |         |<--(B)---- Access Token ---------<|               |
+     |         |                                  |               |
+     +---------+                                  +---------------+
+</pre> 
+
+
+- Client : MySite
+- Authorization Server : Facebook
+
+
+It is not validate for because will never provide this way to get access token. 
 
 
 
 
+
+#### Summary ####
+
+Above introduced all my understanding of the OAuth2 mechanism and what scenarios they should be used. Most of time, the first grant way is your best choice because it much more safe.  
