@@ -2,7 +2,7 @@
 layout: post
 title:  "Nice Stream API provided by Common Upload"
 date: 2017-05-126 15:10:00 +0000
-categories: Library Usage
+categories: Web
 ---
 
 ### Nice Stream API provided by Common Upload
