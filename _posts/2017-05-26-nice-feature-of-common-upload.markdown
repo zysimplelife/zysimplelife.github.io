@@ -7,11 +7,11 @@ categories: Web
 
 ### Nice Stream API provided by Common Upload
 
-My website needed support uploading  file as large as 5 GB. After using the mulit-part feature provided by Jesery, I managed to support this feature. But during real node test, we found it was a terrible solution because all the file would be cached in dish before finishing handle it.  It was not acceptable because the disk in our system is limited.  What made things worse is when the disk was full, no more action could release space except deleting those cache files and restarting tomcat. Hence I have to find another way to solve this issue.
+My website needed support uploading file as large as 5 GB. After using the multi-part feature provided by Jesery, I managed to support it. But during real node test, we found it was a terrible solution because all the files would be buffered in dish before starting handle it.  It was not acceptable because the disk in our system is limited.  What made things worse is when the disk was full, no more action could release space except deleting those cache files and restarting tomcat. Hence I have to find another way to solve this issue.
 
 ### Apache Common File Upload
 
-When I was trying to find a solution, the library common file upload came to me. After go thought the document,  I found it was perfect to solve my problem with streaming api which had been introduced in version 1.2.  I quote the words from Common File Upload  here to explain why people need such feature. 
+When I was trying to find a solution, the library common file upload came to me. After going thought the document,  I found it was perfect to solve my problem with streaming api which had been introduced in version 1.2.  I quote the words from Common File Upload  here to explain why people need such feature. 
 
 <pre>
 The traditional API, which is described in the User Guide, assumes, that file items must be stored 
@@ -24,7 +24,7 @@ low memory profile. Additionally, the API is more lightweight, thus easier to un
 
 
 ### Usage
-The useage of  this API is straight forward. 
+The usage of this API is straight forward. 
 
 <pre>
 try {
@@ -61,7 +61,7 @@ try {
 
 ### What is form data  
 
-Firstly, from the code I find it takes all the multi parts as the stream and handle them one by one. Because A file upload request comprises an ordered list of items that are encoded according to [RFC 1867](http://www.ietf.org/rfc/rfc1867.txt). There is an example about how the form data looks like 
+Firstly, from the code I find it takes all the multi-parts as the stream and handle them one by one. Because A file upload request comprises an ordered list of items that are encoded according to [RFC 1867](http://www.ietf.org/rfc/rfc1867.txt). There is an example about how the form data looks like 
 
 Suppose the server supplies the following page:
 
@@ -116,7 +116,7 @@ boundary = getBoundary(contentType);
 // In order to notifier client the progress of upload 
 notifier = new MultipartStream.ProgressNotifier(listener, requestSize);
 
-// Create the multipart stream
+// Create the multipart stream to read input stream 
 multi = new MultipartStream(input, boundary, notifier);
 multi.setHeaderEncoding(charEncoding);
 
@@ -127,3 +127,114 @@ findNextItem();
 
 
 </pre>
+
+From the code above, we can find it create a dedicated Stream class named "MultipartStream" to handle input stream. We have to understand how it works before understand how to boundary and read input stream. All the parameter needed can be found from the java doc, which is very clear so I do not need explain too much.
+
+
+<pre>
+   * @param input    The <code>InputStream</code> to serve as a data source.
+     * @param boundary The token used for dividing the stream into
+     *                 <code>encapsulations</code>.
+     * @param bufSize  The size of the buffer to be used, in bytes.
+     * @param pNotifier The notifier, which is used for calling the
+     *                  progress listener, if any.
+     *
+     * @throws IllegalArgumentException If the buffer size is too small
+     *
+     * @since 1.3.1
+     */
+    public MultipartStream(InputStream input,
+            byte[] boundary,
+            int bufSize,
+            ProgressNotifier pNotifier) {
+</pre>
+
+FileItemIterator heavily depend on this class to find findNextItem. I add some description in following attached code snippet to make it easier to understand. 
+
+<pre>
+
+/**
+ * Called for finding the next item, if any.
+ *
+ * @return True, if an next item was found, otherwise false.
+ * @throws IOException An I/O error occurred.
+ */
+private boolean findNextItem() throws IOException {
+    ... Some preCheck Code...
+    for (;;) { // loop until find result
+        boolean nextPart;
+        //Charlie: Skip to next next begining if found.
+        if (skipPreamble) {   
+            nextPart = multi.skipPreamble();
+        } else {
+            nextPart = multi.readBoundary();
+        }
+        //Charlie: If no more multipart, return false
+        if (!nextPart) {
+            if (currentFieldName == null) {
+                // Outer multipart terminated -> No more data
+                eof = true;
+                return false;
+            }
+            // Inner multipart terminated -> Return to parsing the outer
+            multi.setBoundary(boundary);
+            currentFieldName = null;
+            continue;
+        }
+       
+        FileItemHeaders headers = getParsedHeaders(multi.readHeaders());
+        if (currentFieldName == null) {
+            // We're parsing the outer multipart
+            //Charlie: seems job multipart can be nested in other multipart 
+            String fieldName = getFieldName(headers);
+            if (fieldName != null) {
+                String subContentType = headers.getHeader(CONTENT_TYPE);
+                if (subContentType != null
+                        &&  subContentType.toLowerCase(Locale.ENGLISH)
+                                .startsWith(MULTIPART_MIXED)) {
+                    currentFieldName = fieldName;
+                    // Multiple files associated with this field name
+                    byte[] subBoundary = getBoundary(subContentType);
+                    multi.setBoundary(subBoundary);
+                    skipPreamble = true;
+                    continue;
+                }
+
+                String fileName = getFileName(headers);
+                //Charlie: Create a new dedicated stream for us to read content. 
+                seems duplicated with following branch. 
+                currentItem = new FileItemStreamImpl(fileName,
+                        fieldName, headers.getHeader(CONTENT_TYPE),
+                        fileName == null, getContentLength(headers));
+                currentItem.setHeaders(headers);
+                notifier.noteItem();
+                itemValid = true;
+                return true;
+            }
+        } else {
+            String fileName = getFileName(headers);
+            if (fileName != null) {
+                currentItem = new FileItemStreamImpl(fileName,
+                        currentFieldName,
+                        headers.getHeader(CONTENT_TYPE),
+                        false, getContentLength(headers));
+                currentItem.setHeaders(headers);
+                notifier.noteItem();
+                itemValid = true;
+                return true;
+            }
+        }
+        multi.discardBodyData();
+    }
+}
+
+</pre>
+
+So far all the main process of steam API has been introduced, hope it could help us to understand how it works. Forgive my broken English anyway. 
+
+
+####Reference 
+
+- [Apache Commons File Upload: ](https://commons.apache.org/proper/commons-fileupload/streaming.html)
+
+
