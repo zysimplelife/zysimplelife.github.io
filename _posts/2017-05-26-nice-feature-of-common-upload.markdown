@@ -22,11 +22,11 @@ The streaming API allows you to trade a little bit of convenience for optimal pe
 low memory profile. Additionally, the API is more lightweight, thus easier to understand
 </pre>
 
-```java
+
 Usage
 The usage of this API is straight forward. 
 
-<pre>
+```java
 try {
     iter = upload.getItemIterator(req);
     while (iter.hasNext()) {
@@ -102,7 +102,7 @@ I am trying to add my understanding of the source code to explain what this libr
 The First task of File upload is to find the boundary of each filed and populate the file iterator. 
 I can't paste all the code here but pick up some code snippet and try to explain it based on my understanding. The pseudocode looks like 
 
-<pre>
+```java
 ..Precheck code ...
 InputStream input = ctx.getInputStream();
 final int contentLengthInt = ctx.getContentLength();
@@ -125,14 +125,14 @@ skipPreamble = true;
 
 // put the pointer to the first item
 findNextItem();
+```
 
 
-</pre>
 
 From the code above, we can find it create a dedicated Stream class named "MultipartStream" to handle input stream. We have to understand how it works before understand how to boundary and read input stream. All the parameter needed can be found from the java doc, which is very clear so I do not need explain too much.
 
 
-<pre>
+```java
    * @param input    The <code>InputStream</code> to serve as a data source.
      * @param boundary The token used for dividing the stream into
      *                 <code>encapsulations</code>.
@@ -148,11 +148,11 @@ From the code above, we can find it create a dedicated Stream class named "Multi
             byte[] boundary,
             int bufSize,
             ProgressNotifier pNotifier) {
-</pre>
+```
 
 FileItemIterator heavily depend on this class to find findNextItem. I add some description in following attached code snippet to make it easier to understand. 
 
-<pre>
+```java
 
 /**
  * Called for finding the next item, if any.
@@ -229,7 +229,7 @@ private boolean findNextItem() throws IOException {
     }
 }
 
-</pre>
+```
 
 So far all the main process of steam API has been introduced, hope it could help us to understand how it works. Forgive my broken English anyway. 
 
