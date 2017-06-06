@@ -422,6 +422,85 @@ public class SshSessionInstance
 If we based on MINA-SSHD we could only provide the implemtation of **Command** to handle input and output Stream. It is quite convience becacuse framework has wrapper a lot of steps for use including the authentication, timeout and so on. I want to understand a little more about how it works, that why I need read the code details.
 
 
+### SSHD Start Code###
+
+Besides on the interface of MINA, sshd abstract several similar interfaces which need be noticed.  I think all those new interface is to let sshd can not only work based on MINA but also other types of network application framework or even NIO directly.  Anyway, There are following interface have same name with MINA which made me confused at begin of reading code.
+
+
+- IoAcceptor
+
+```Java
+public interface IoAcceptor extends IoService {
+
+    void bind(Collection<? extends SocketAddress> addresses) throws IOException;
+
+    void bind(SocketAddress address) throws IOException;
+
+    void unbind(Collection<? extends SocketAddress> addresses);
+
+    void unbind(SocketAddress address);
+
+    void unbind();
+
+    Set<SocketAddress> getBoundAddresses();
+
+}
+```
+
+
+- IoHandler
+
+```Java
+public interface IoHandler {
+
+    void sessionCreated(IoSession session) throws Exception;
+
+    void sessionClosed(IoSession session) throws Exception;
+
+    void exceptionCaught(IoSession ioSession, Throwable cause) throws Exception;
+
+    void messageReceived(IoSession session, Readable message) throws Exception;
+
+}
+```
+
+
+After notcing above new interface, we can start from the source code. All the sshd server start from the method start which will init two object Session Factory and Acceptor in the Class SshServer.  SshClient is another implementation to work as ssh client. I will not cover it in this article. According to the configuration,  sshd server can work based on either NiO or MiNA.  I will only cover MiNA part in this artcle. 
+
+```Java
+
+/**
+     * Start the SSH server and accept incoming exceptions on the configured port.
+     * 
+     * @throws IOException
+     */
+    public void start() throws IOException {
+        checkConfig();
+        if (sessionFactory == null) {
+            sessionFactory = createSessionFactory();
+        }
+        sessionFactory.setServer(this);
+        acceptor = createAcceptor();
+
+        setupSessionTimeout(sessionFactory);
+
+        ..Check host ...
+        acceptor.bind(new InetSocketAddress(port));
+           
+    }
+
+```
+
+- SessionFactory : It is also an IoHandler of sshd to handle message
+- IoAcceptor :  It is a wrapper of Mina IoAccepter when working based on MINA framework. 
+
+ 
+In the SSH Protocol can create one or more channel to reuse a connection or session according to the [description](https://tools.ietf.org/html/rfc4254). Each channel has a type. Usually, you will use “session” channels, but there are also “x11” channels, “forwarded-tcpip” channels, and “direct-tcpip” channels. 
+
+
+
+
+
 
 
 
