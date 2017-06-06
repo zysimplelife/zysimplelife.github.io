@@ -22,8 +22,8 @@ The streaming API allows you to trade a little bit of convenience for optimal pe
 low memory profile. Additionally, the API is more lightweight, thus easier to understand
 </pre>
 
-
-### Usage
+```java
+Usage
 The usage of this API is straight forward. 
 
 <pre>
@@ -56,7 +56,8 @@ try {
     }
 } catch (FileUploadException e) {
     e.printStackTrace();
-}</pre>
+}
+```
 
 
 ### What is form data  
