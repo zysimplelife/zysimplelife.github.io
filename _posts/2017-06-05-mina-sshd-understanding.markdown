@@ -9,7 +9,7 @@ categories: Source Code
 
 We were working for a new project to provide an ssh server demon receiving custom request. There are a good example [website](http://javajdk.net/tutorial/apache-mina-sshd-sshserver-example/) for us to start. But in order to understand better, I have to go thought the source code of MINA-SSHD and understand how it works. Following part is based on sshd 0.14 which is a very old one but is enough for us. 
 
-### MINA-Architucture ####
+### MINA-Architucture ###
 
 Apache MINA-SSDH bases on MINA which is a network application framework which helps users develop high performance and high scalability network applications easily. It provides an abstract event-driven asynchronous API over various transports such as TCP/IP and UDP/IP via Java NIO. 
 
@@ -193,9 +193,233 @@ Notice that there will be another executor to launch Accepter to accpet message.
 ```
 
 
-From the code above we can see IoAccepter will return the a NioSocketSession which contains both IoProcessor and ServerSocketChannel. That means accepter only handle the new session coming from client but let IoPrecessor to handle the details operation. So, we should understand how IoProcessor works.
+From the code above we can see IoAccepter will return the a NioSocketSession which contains both IoProcessor and ServerSocketChannel. That means accepter only handle the new session coming from client but let IoPrecessor to handle the details operation. So, we should understand how IoProcessor works. 
+From the code **AbstractPollingIoProcessor** we can find it is a thread launched but another thread pool. Each Thread is in charge of pooling the Selector. Let us how it works
+
+```java
+
+ /**
+     * The main loop. This is the place in charge to poll the Selector, and to
+     * process the active sessions. It's done in
+     * - handle the newly created sessions
+     * -
+     */
+    private class Processor implements Runnable {
+        public void run() {
+            assert (processorRef.get() == this);
+
+            int nSessions = 0;
+            lastIdleCheckTime = System.currentTimeMillis();
+
+            for (;;) {
+                try {
+                   ... Code to handle timeout ...
+
+                    // Manage newly created session first
+                    nSessions += handleNewSessions();
+
+                    updateTrafficMask();
+
+                    // Now, if we have had some incoming or outgoing events,
+                    // deal with them
+                    if (selected > 0) {
+                        //LOG.debug("Processing ..."); // This log hurts one of the MDCFilter test...
+                        process();
+                    }
+
+                    // Write the pending requests
+                    long currentTime = System.currentTimeMillis();
+                    flush(currentTime);
+
+                    // And manage removed sessions
+                    nSessions -= removeSessions();
+
+                    // Last, not least, send Idle events to the idle sessions
+                    notifyIdleSessions(currentTime);
+
+                    // Get a chance to exit the infinite loop if there are no
+                    // more sessions on this Processor
+                    if (nSessions == 0) {
+                        .. exit if no more session
+                    }
+
+                    // Disconnect all sessions immediately if disposal has been
+                    // requested so that we exit this loop eventually.
+                    if (isDisposing()) {
+                        ..dispose
+                    }
+                } catch (ClosedSelectorException cse) {
+                    ...
+                } catch (Throwable t) {
+                    ...
+                }
+            }
+
+            ..dispose
+        }
+    }
+
+```
+
+Above code is is quite clear that each process would handle several sessions operation. it will exist if all the session is closed or disposing method is called. Processor handle 3 types of message:create new sesson, remove closed session and process incoming message. The first two part is quite easy so let look at how to process message
+
+```java
+	/**
+     * Deal with session ready for the read or write operations, or both.
+     */
+    private void process(S session) {
+        // Process Reads
+        if (isReadable(session) && !session.isReadSuspended()) {
+            read(session);
+        }
+
+        // Process writes
+        if (isWritable(session) && !session.isWriteSuspended()) {
+            // add the session to the queue, if it's not already there
+            if (session.setScheduledForFlush(true)) {
+                flushingSessions.add(session);
+            }
+        }
+    }
 
 
+	 private void read(S session) {
+        ...
+
+        try {
+            int readBytes = 0;
+            int ret;
+            ...
+            ret = read(session, buf);
+            ...
+         
+            if (readBytes > 0) {
+                IoFilterChain filterChain = session.getFilterChain();
+                filterChain.fireMessageReceived(buf);
+                ...
+            }
+
+            if (ret < 0) {
+                scheduleRemove(session);
+            }
+        } catch (Throwable e) {
+            ...
+            IoFilterChain filterChain = session.getFilterChain();
+            filterChain.fireExceptionCaught(e);
+        }
+    }
+
+	**@Override
+    protected int read(NioSession session, IoBuffer buf) throws Exception {
+        ByteChannel channel = session.getChannel();
+        return channel.read(buf.buf());
+    }**
+
+```
+
+From the above code we can found processor will call the filter chain metioned at begining to handle input message which stored in the buffer. But how the handler to be called?  That is because there is an default filter named **TailFilter** which will call handler
+
+```java
+private static class TailFilter extends IoFilterAdapter {
+...
+	@Override
+	public void messageReceived(NextFilter nextFilter, IoSession session, Object message) throws Exception {
+	    AbstractIoSession s = (AbstractIoSession) session;
+	    if (!(message instanceof IoBuffer)) {
+	        s.increaseReadMessages(System.currentTimeMillis());
+	    } else if (!((IoBuffer) message).hasRemaining()) {
+	        s.increaseReadMessages(System.currentTimeMillis());
+	    }
+	
+	    try {
+	        session.getHandler().messageReceived(s, message);
+	    } finally {
+	        if (s.getConfig().isUseReadOperation()) {
+	            s.offerReadFuture(message);
+	        }
+	    }
+	}
+...
+}
+```
+
+So far I have understanded how the message works in the MINA server side, it is better to provide a dragram to descripte the whole work flow, helping us under stand how mina-sshd works later. Because I am not familar how NIO works, all the descirption hasn't went into details which I need make up in future. Anyway,  It could be a good start
+
+![](https://www.planttext.com/plantuml/img/XP7TJiCm38Nl_HHMTmCNVO4AeMqWnAI19lO4QM9QYpJk4fUVjoVGJL1rY3idvtpsYRDCQg8EdGTGLazOxEamKB24jsoQQBe201vPzc9VI5VMKgyIiIolSLKdZSRgJhpdq6paf5Or1mT_oYDyyc8VnL9AzoOuJmachldW2irt-UExAikplg-xt9Sb0DJoZiLMf4SEg6qaumfSRBbfTUq7WddOtPZgc6CZT-oLuarhSeCAdpdIGvPDGqzaYL_9NNJZ-HAcvjzu9hifXNFiI8pxE8Fy6tRzePHdXq0-qs-HDJ-GWiEy1O1bhl9_Vm80)
+
+
+[EDIT](https://www.planttext.com/?text=XP7TJiCm38Nl_HHMTmCNVO4AeMqWnAI19lO4QM9QYpJk4fUVjoVGJL1rY3idvtpsYRDCQg8EdGTGLazOxEamKB24jsoQQBe201vPzc9VI5VMKgyIiIolSLKdZSRgJhpdq6paf5Or1mT_oYDyyc8VnL9AzoOuJmachldW2irt-UExAikplg-xt9Sb0DJoZiLMf4SEg6qaumfSRBbfTUq7WddOtPZgc6CZT-oLuarhSeCAdpdIGvPDGqzaYL_9NNJZ-HAcvjzu9hifXNFiI8pxE8Fy6tRzePHdXq0-qs-HDJ-GWiEy1O1bhl9_Vm80)
+
+
+### MINA-SSHD###
+While reading MINA-SSHD, I was focusing on how MINA-SSHD extend MINA and how it provide API to customzation. Let start from a code example on how to provide a SSHD demo based on MINA-SSHD
+
+```java
+
+public class SshSessionInstance 
+        implements Command, Runnable {
+  
+  //ANSI escape sequences for formatting purposes 
+  ...
+  //IO streams for communication with the client
+  private InputStream is;
+  private OutputStream os;
+  
+  //Environment stuff
+  @SuppressWarnings("unused")
+  private Environment environment;
+  private ExitCallback callback;
+  
+  private Thread sshThread;
+  
+  @Override
+  public void start(Environment env) throws IOException 
+  {    
+    //must start new thread to free up the input stream
+    environment = env;
+    sshThread = new Thread(this, "EchoShell");
+    sshThread.start();
+  }
+
+  @Override
+  public void run() 
+  {
+    BufferedReader br = new BufferedReader(new InputStreamReader(is));
+    
+    //Make sure local echo is on (because password turned it off
+   
+      os.write(WELECOME_MESSAGE);
+      os.flush();
+    try {
+      
+      boolean exit = false;
+      String text;
+      while ( ! exit ) 
+      {
+        text = br.readLine();
+        ... Handle text 
+      }
+    } catch (Exception e) {
+        ...
+    } finally {
+        callback.onExit(0);
+    }
+  }
+
+  @Override
+  public void destroy() throws Exception 
+  {
+    sshThread.interrupt();
+  }
+
+ ...
+
+}
+
+
+```
+
+If we based on MINA-SSHD we could only provide the implemtation of **Command** to handle input and output Stream. It is quite convience becacuse framework has wrapper a lot of steps for use including the authentication, timeout and so on. I want to understand a little more about how it works, that why I need read the code details.
 
 
 
