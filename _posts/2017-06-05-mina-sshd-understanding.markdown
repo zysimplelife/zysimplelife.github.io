@@ -157,7 +157,7 @@ Notice that there will be another executor to launch Accepter to accpet request 
 
 
 From the code above we can see IoAccepter will return the a NioSocketSession which contains both IoProcessor and ServerSocketChannel. That means accepter only handle the new session coming from client but let IoPrecessor to handle the details operation. So, we should understand how IoProcessor works. 
-Abstract class "AbstractPollingIoProcessor" is also an Runnable which will be launched but another thread pool. Each Thread is in charge of pooling the Selector. Let us how it works
+Abstract class "AbstractPollingIoProcessor" is also an Runnable which will be launched but another thread pool. Each Thread is in charge of pooling the Selector. The int returned by the select() methods tells how many channels are ready. That is, how many channels that became ready since last time you called select(). If you call select() and it returns 1 because one channel has become ready, and you call select() one more time, and one more channel has become ready, it will return 1 again. If you have done nothing with the first channel that was ready, you now have 2 ready channels, but only one channel had become ready between each select() call.  Let us how it works
 
 ```java
 
