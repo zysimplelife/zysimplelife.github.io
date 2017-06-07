@@ -492,20 +492,226 @@ After notcing above new interface, we can start from the source code. All the ss
 ```
 
 - SessionFactory : It is also an IoHandler of sshd to handle message
-- IoAcceptor :  It is a wrapper of Mina IoAccepter when working based on MINA framework. 
+- IoAcceptor :  It is a wrapper of MiNA IoAccepter when working based on MINA framework. 
 
  
-In the SSH Protocol can create one or more channel to reuse a connection or session according to the [description](https://tools.ietf.org/html/rfc4254). Each channel has a type. Usually, you will use “session” channels, but there are also “x11” channels, “forwarded-tcpip” channels, and “direct-tcpip” channels. 
+Similar to MiNA Concept, Acceptor here is used to accept input message then dispatch to session to handle. It is actually an wrapper of MiNA IoAcceptor if using MiNA framework. Here is the part of code snip on how to wrapper it. From it we can found it is acutally a NioSocketAcceptor will be used to bind SocketAddress as Default MiNA framwork does.
+
+
+```java
+public class MinaAcceptor extends MinaService implements org.apache.sshd.common.io.IoAcceptor, IoHandler {
+...
+ protected IoAcceptor createAcceptor() {
+        NioSocketAcceptor acceptor = new NioSocketAcceptor(ioProcessor);
+        acceptor.setCloseOnDeactivation(false);
+        acceptor.setReuseAddress(reuseAddress);
+        acceptor.setBacklog(backlog);
+        configure(acceptor.getSessionConfig());
+        return acceptor;
+    }
+
+ public void bind(SocketAddress address) throws IOException {
+    getAcceptor().bind(address);
+}
+...
+}
+```
+
+Notice that the IoProcessor is another resus of the MiNA implementation 
+
+```java
+this.ioProcessor = new SimpleIoProcessorPool<NioSession>(NioProcessor.class, getNioWorkers());
+```
+
+
+What more, MinaAcceptor extends MinaService which is also an MiNA IoHandler for wrapper SSHD IoHandler. 
+
+```java
+public abstract class MinaService extends IoHandlerAdapter implements org.apache.sshd.common.io.IoService, IoHandler, Closeable {
+...
+public void sessionCreated(IoSession session) throws Exception {
+        org.apache.sshd.common.io.IoSession ioSession = new MinaSession(this, session);
+        session.setAttribute(org.apache.sshd.common.io.IoSession.class, ioSession);
+        handler.sessionCreated(ioSession);
+    }
+
+    public void sessionClosed(IoSession session) throws Exception {
+        handler.sessionClosed(getSession(session));
+    }
+
+    public void exceptionCaught(IoSession session, Throwable cause) throws Exception {
+        handler.exceptionCaught(getSession(session), cause);
+    }
+
+    public void messageReceived(IoSession session, Object message) throws Exception {
+        handler.messageReceived(getSession(session), MinaSupport.asReadable((IoBuffer) message));
+    }
+...
+}
+
+```
 
 
 
+So far we have got that the integration between SSHD and MINA framework is quite simple. SSHD used Factory and Strategy pattern to support both MINA and NIO as the foundation. To make it more clear, I provided the Corresponding diagram between SSHD and MINA
+
+![](https://www.planttext.com/plantuml/img/RP3F2i8m3CRlUOgm-zv0nE4GFMmCTXGFfGkph6j6MnKHtzqEdQj_Uag_V7o_92ldXVMdNWDuvJLX9MGdMdAOufhxWGqPZxaIhHKzmF3iObAeCalm1XZUViUPb3HujeT9g2nBSYvIji8qciB_FiVKxfXF8QNYccL7_YkhLlsWAKgicFNK2u9Yin4o-AyliL16r6JFIj88GvZ7mqNQyCMaIyGV74I8sVUN3kzjPcD4XQZ6T0pv61DWHQO99ty0)
+[EDIT](https://www.planttext.com/?text=RP3F2i8m3CRlUOgm-zv0nE4GFMmCTXGFfGkph6j6MnKHtzqEdQj_Uag_V7o_92ldXVMdNWDuvJLX9MGdMdAOufhxWGqPZxaIhHKzmF3iObAeCalm1XZUViUPb3HujeT9g2nBSYvIji8qciB_FiVKxfXF8QNYccL7_YkhLlsWAKgicFNK2u9Yin4o-AyliL16r6JFIj88GvZ7mqNQyCMaIyGV74I8sVUN3kzjPcD4XQZ6T0pv61DWHQO99ty0)
 
 
 
+SessionFactory takes most of the take to handle ssh session. It response to create ssh session which is inherited from abstract class "AbstractSession" which handles all the basic SSH protocol such as key exchange, authentication, encoding and decoding. Both server side and client side sessions should inherit from this abstract class. It is a very big but important class which I will spilt it into different part.
+
+Firstly, it is nested in MINA session and should be retrieved every time handle message as follows 
+
+```java
+/**
+     * Retrieve the session from the MINA session.
+     * If the session has not been attached and allowNull is <code>false</code>,
+     * an IllegalStateException will be thrown, else a <code>null</code> will
+     * be returned
+     *
+     * @param ioSession the MINA session
+     * @param allowNull if <code>true</code>, a <code>null</code> value may be
+     *        returned if no session is attached
+     * @return the session attached to the MINA session or <code>null</code>
+     */
+    public static AbstractSession getSession(IoSession ioSession, boolean allowNull) {
+        AbstractSession session = (AbstractSession) ioSession.getAttribute(SESSION);
+        if (!allowNull && session == null) {
+            throw new IllegalStateException("No session available");
+        }
+        return session;
+    }
+
+	/**
+     * Attach a session to the MINA session
+     *
+     * @param ioSession the MINA session
+     * @param session the session to attach
+     */
+    public static void attachSession(IoSession ioSession, AbstractSession session) {
+        ioSession.setAttribute(SESSION, session);
+    }
+```
+
+Secondly, message is encrypted during transforming in ssh protocol. This class provided encode and decode method to handle it. 
+
+```java
+    private void encode(Buffer buffer) throws IOException {
+		...
+	}
+   protected void decode() throws Exception {
+		...
+	}
+``` 
+
+Thirdly, this class do not provide authentication part but only have the interface to set if this session has been authenticated
+
+```java
+	public void setAuthenticated() throws IOException {
+        this.authed = true;
+        sendEvent(SessionListener.Event.Authenticated);
+    }
+	public boolean isAuthenticated() {
+        return authed;
+    }
+```
+
+Lastly, the most important part is handle input message
+```java
+protected void doHandleMessage(Buffer buffer) throws Exception {
+        byte cmd = buffer.getByte();
+        switch (cmd) {
+            case SSH_MSG_DISCONNECT: {
+                ...disconnect
+            }
+            case SSH_MSG_IGNORE: {
+                ...ignore
+            }
+            case SSH_MSG_UNIMPLEMENTED: {
+                ...
+            }
+            case SSH_MSG_DEBUG: {
+                ...print debug message
+            }
+            case SSH_MSG_SERVICE_REQUEST:
+                ... start service according to reference https://www.ietf.org/rfc/rfc4253.txt
+				... The default service in SSHD is connection and user authentication
+                startService(service);
+                ... write message back
+                writePacket(response);
+                
+            case SSH_MSG_SERVICE_ACCEPT:
+                ... shouldn't happend in server side 
+            case SSH_MSG_KEXINIT:
+                ... do key exchange
+            case SSH_MSG_NEWKEYS:
+                ... do key exchange
+            default:
+                ... handle message
+                currentService.process(cmd, buffer);
+                resetIdleTimeout();
+                ...
+        }
+        checkRekey();
+    }
+```
+
+According to rfc4253, default ssh service are authentication and connection service. authentication service is used to authenticate user before making the connection. It very important but quite straght forword, so we are going to focus on the connection service. SSHD connection service is provided by abstract class "AbstractConnectionService" which is inherited by both client and service implementation. Let continue reading the most important code 
+
+```java
+public void process(byte cmd, Buffer buffer) throws Exception {
+        switch (cmd) {
+            case SSH_MSG_CHANNEL_OPEN:
+                channelOpen(buffer);
+                break;
+            case SSH_MSG_CHANNEL_OPEN_CONFIRMATION:
+                channelOpenConfirmation(buffer);
+                break;
+            case SSH_MSG_CHANNEL_OPEN_FAILURE:
+                channelOpenFailure(buffer);
+                break;
+            case SSH_MSG_CHANNEL_REQUEST:
+                channelRequest(buffer);
+                break;
+            case SSH_MSG_CHANNEL_DATA:
+                channelData(buffer);
+                break;
+            case SSH_MSG_CHANNEL_EXTENDED_DATA:
+                channelExtendedData(buffer);
+                break;
+            case SSH_MSG_CHANNEL_FAILURE:
+                channelFailure(buffer);
+                break;
+            case SSH_MSG_CHANNEL_WINDOW_ADJUST:
+                channelWindowAdjust(buffer);
+                break;
+            case SSH_MSG_CHANNEL_EOF:
+                channelEof(buffer);
+                break;
+            case SSH_MSG_CHANNEL_CLOSE:
+                channelClose(buffer);
+                break;
+            case SSH_MSG_GLOBAL_REQUEST:
+                globalRequest(buffer);
+                break;
+            case SSH_MSG_REQUEST_SUCCESS:
+                requestSuccess(buffer);
+                break;
+            case SSH_MSG_REQUEST_FAILURE:
+                requestFailure(buffer);
+                break;
+            default:
+                throw new IllegalStateException("Unsupported command: " + cmd);
+        }
+    }
+```
+
+From the code above we can see this service handle two types of messge: channel and request. In the SSH Protocol service can create one or more channel to reuse a connection or session according to the [description](https://tools.ietf.org/html/rfc4254). Each channel has a type. Usually, you will use “session” channels, but there are also “x11” channels, “forwarded-tcpip” channels, and “direct-tcpip” channels. 
 
 
 ### Reference 
 
-- [Apache Commons File Upload: ](https://commons.apache.org/proper/commons-fileupload/streaming.html)
 
 
