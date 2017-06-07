@@ -710,6 +710,140 @@ public void process(byte cmd, Buffer buffer) throws Exception {
 
 From the code above we can see this service handle two types of messge: channel and request. In the SSH Protocol service can create one or more channel to reuse a connection or session according to the [description](https://tools.ietf.org/html/rfc4254). Each channel has a type. Usually, you will use “session” channels, but there are also “x11” channels, “forwarded-tcpip” channels, and “direct-tcpip” channels. 
 
+Firstlly, Let see how to create a channel. There are several channel type and session channel is enough for us to create the ssh daemon. 
+
+```java
+public abstract class AbstractConnectionService extends CloseableUtils.AbstractInnerCloseable implements ConnectionService {
+/** Map of channels keyed by the identifier */
+    protected final Map<Integer, Channel> channels = new ConcurrentHashMap<Integer, Channel>();
+...
+protected void channelOpen(Buffer buffer) throws Exception {
+...
+ 		final Channel channel = NamedFactory.Utils.create(session.getFactoryManager().getChannelFactories(), type);
+
+        ...
+
+        final int channelId = registerChannel(channel);
+        channel.open(id, rwsize, rmpsize, buffer).addListener(new SshFutureListener<OpenFuture>() {
+            public void operationComplete(OpenFuture future) {
+                try {
+                    if (future.isOpened()) {
+						// write back channel ID to client
+                        Buffer buf = session.createBuffer(SshConstants.SSH_MSG_CHANNEL_OPEN_CONFIRMATION);
+                        buf.putInt(id);
+                        buf.putInt(channelId);
+                        buf.putInt(channel.getLocalWindow().getSize());
+                        buf.putInt(channel.getLocalWindow().getPacketSize());
+                        session.writePacket(buf);
+                    } else {
+                        ... failed to write back
+                    }
+                } catch (IOException e) {
+                    session.exceptionCaught(e);
+                }
+            }
+        });
+...
+	}
+}
+```
+
+
+After the channel is been created, client will send request with channel id to server. ChannelSession is the implementation in MINA-SSHD. It actually can handle several types of request 
+
+```java
+ public Boolean handleRequest(String type, Buffer buffer) throws IOException {
+        if ("env".equals(type)) {
+            return handleEnv(buffer);
+        }
+        if ("pty-req".equals(type)) {
+            return handlePtyReq(buffer);
+        }
+        if ("window-change".equals(type)) {
+            return handleWindowChange(buffer);
+        }
+        if ("signal".equals(type)) {
+            return handleSignal(buffer);
+        }
+        if ("break".equals(type)) {
+            return handleBreak(buffer);
+        }
+        if ("shell".equals(type)) {
+            if (this.type == null && handleShell(buffer)) {
+                this.type = type;
+                return true;
+            } else {
+                return false;
+            }
+        }
+        if ("exec".equals(type)) {
+            if (this.type == null && handleExec(buffer)) {
+                this.type = type;
+                return true;
+            } else {
+                return false;
+            }
+        }
+        if ("subsystem".equals(type)) {
+            if (this.type == null && handleSubsystem(buffer)) {
+                this.type = type;
+                return true;
+            } else {
+                return false;
+            }
+        }
+        if ("auth-agent-req@openssh.com".equals(type)) {
+            return handleAgentForwarding(buffer);
+        }
+        if ("x11-req".equals(type)) {
+            return handleX11Forwarding(buffer);
+        }
+        return null;
+    }
+```
+
+if we need customsize shell behavior we can found how sshd call our method 
+
+```java
+	protected boolean handleShell(Buffer buffer) throws IOException {
+        ...
+        command = ((ServerSession) session).getFactoryManager().getShellFactory().create();
+		/**
+		In this method, it will set input/output stream and session context in the command
+		*/
+        prepareCommand();
+        command.start(getEnvironment());
+        return true;
+    }
+
+```
+
+TODO: describe how the pipe stream work together with channel
+
+
+
+
+
+Above diagram shows how the whole workflow works. From it we can understand that to implement the interface "Command" can we customized the behavior of a shell "Command". 
+
+```java
+Factory<Command> 
+
+public interface Command {
+    void setInputStream(InputStream in);
+    void setOutputStream(OutputStream out);
+    void setErrorStream(OutputStream err);
+    void setExitCallback(ExitCallback callback);
+    void start(Environment env) throws IOException;
+    void destroy();
+}
+
+
+```
+
+
+
+
 
 ### Reference 
 
