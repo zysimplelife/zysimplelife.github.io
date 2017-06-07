@@ -1,17 +1,17 @@
 ---
 layout: post
-title:  "MINA-SSHD Understanding"
+title:  "MINA-SSHD source code Understanding"
 date: 2017-06-5 15:10:00 +0000
 categories: Source Code
 ---
 
 ### MINA-SSHD ####
 
-We were working for a new project to provide an ssh server demon receiving custom request. There are a good example [website](http://javajdk.net/tutorial/apache-mina-sshd-sshserver-example/) for us to start. But in order to understand better, I have to go thought the source code of MINA-SSHD and understand how it works. Following part is based on sshd 0.14 which is a very old one but is enough for us. 
+We were working for a new project to provide an ssh server demon receiving custom request. There is a good example [website](http://javajdk.net/tutorial/apache-mina-sshd-sshserver-example/) for us to start. But in order to understand how it worked, I had to go thought the source code of MINA-SSHD. Following part is based on sshd 0.14 which is a very old one but enough for us. 
 
 ### MINA-Architucture ###
 
-Apache MINA-SSDH bases on MINA which is a network application framework which helps users develop high performance and high scalability network applications easily. It provides an abstract event-driven asynchronous API over various transports such as TCP/IP and UDP/IP via Java NIO. 
+Apache MINA-SSHD bases on MINA, a network application framework which helps users develop high performance and high scalability network applications easily. It provides an abstract event-driven asynchronous API over various transports such as TCP/IP and UDP/IP via Java NIO. 
 
 Before understanding how SSHD works we should understand how MINA-SSHD do. MINI framework provides the interface of IoHandler for user to customized there own business logic. There are a lot of [example](http://developer.51cto.com/art/201103/248125_all.htm) on this topic on how to create a new protocol based on MINA. Following picture show the work flow. 
 
@@ -19,7 +19,7 @@ Before understanding how SSHD works we should understand how MINA-SSHD do. MINI 
 [EDIT](https://www.planttext.com/?text=SoWkIImgAStDuU8goIp9ILNmzVHpL0ZFByfEoyalv-AA3aujAaij2ivCIOrLq2tAJCyeqLM8Tix9JCqh0GkYAR7HrRLJYFRCTqnEJYqeIIsAvKBcmANTCdDWab0cNCeZCIyb1oG7D1d97eWyI85pVbvUQd99FaGxWaUYuLnS3gbvAK2V0m00)
 
 
-Lets see a example as below 
+Let's see a example as below 
 
 
 ```java
@@ -44,7 +44,7 @@ public static void main(String[] args) throws IOException {
 ```
 
 
-IoFilter will handle low level stream, for example encode decode while handler will handle high level message. MINA has provided several Acceptor or and Filter for developer, so that we can pick up what we need and focus on business logic.  Let us have a look on IoHandler interface
+IoFilter will handle low level stream, for example encode decode while handler will handle high level message. MINA has provided several Acceptors or and Filters for developer, so that we can pick up what we need and focus on business logic.  Let us have a look on IoHandler interface
 
 ```java
 public interface IoHandler {  
@@ -66,12 +66,12 @@ public interface IoHandler {
 
 ```
 
-There are several session releated event will be trigger by mina for customnized protocol. for example messageSent is the major method to handle recieved message in server side. This Interface is very clear and easy to understand. What I want to know is how the message came to IoHandler
+There are several session releated event will be trigger by MINA for customized protocol. This Interface is very clear and easy to understand. What I want to know is how the message came to IoHandler
 
 
 #### IoAccpeter and IoProcessor ####
 
-Actually, in the MINA source code, IoAccepter work together with IoProcessor to dispatch request or message to above work flow. Take the default IoAccepter as example, the major logic locale on **AbstractPollingIoAcceptor**. A code snipplet from it show what happens when call the method **bind()** 
+Actually, in the MINA source code, IoAccepter work together with IoProcessor to dispatch request or message to above work flow. Take the default IoAccepter as example, the major logic locales on "AbstractPollingIoAcceptor". A code snipplet from it show what happens when call the method "bind()"
 
 ```java
 
@@ -87,31 +87,8 @@ protected final Set<SocketAddress> bindInternal(List<? extends SocketAddress> lo
         // creates the Acceptor instance and has the local
         // executor kick it off.
         startupAcceptor();
-
-        // As we just started the acceptor, we have to unblock the select()
-        // in order to process the bind request we just have added to the
-        // registerQueue.
-        try {
-            lock.acquire();
-
-            // Wait a bit to give a chance to the Acceptor thread to do the select()
-            Thread.sleep(10);
-            wakeup();
-        } finally {
-            lock.release();
-        }
-
-        // Now, we wait until this request is completed.
-        request.awaitUninterruptibly();
-
-        if (request.getException() != null) {
-            throw request.getException();
-        }
-
-        // Update the local addresses.
-        // setLocalAddresses() shouldn't be called from the worker thread
-        // because of deadlock.
-        Set<SocketAddress> newLocalAddresses = new HashSet<SocketAddress>();
+        ...
+		...
 
         for (H handle : boundHandles.values()) {
             newLocalAddresses.add(localAddress(handle));
@@ -123,26 +100,12 @@ protected final Set<SocketAddress> bindInternal(List<? extends SocketAddress> lo
 ```
 
 
-Notice that there will be another executor to launch Accepter to accpet message. Because the code is too long to put all of them, I pick up the most important part
+Notice that there will be another executor to launch Accepter to accpet request as following code sniplet
 
 ```java
-/**
-     * This class is called by the startupAcceptor() method and is
-     * placed into a NamePreservingRunnable class.
-     * It's a thread accepting incoming connections from clients.
-     * The loop is stopped when all the bound handlers are unbound.
-     */
     private class Acceptor implements Runnable {
-...
- /**
-         * This method will process new sessions for the Worker class.  All
-         * keys that have had their status updates as per the Selector.selectedKeys()
-         * method will be processed here.  Only keys that are ready to accept
-         * connections are handled here.
-         * <p/>
-         * Session objects are created by making new instances of SocketSessionImpl
-         * and passing the session object to the SocketIoProcessor class.
-         */
+		...
+
         @SuppressWarnings("unchecked")
         private void processHandles(Iterator<H> handles) throws Exception {
             while (handles.hasNext()) {
@@ -194,7 +157,7 @@ Notice that there will be another executor to launch Accepter to accpet message.
 
 
 From the code above we can see IoAccepter will return the a NioSocketSession which contains both IoProcessor and ServerSocketChannel. That means accepter only handle the new session coming from client but let IoPrecessor to handle the details operation. So, we should understand how IoProcessor works. 
-From the code **AbstractPollingIoProcessor** we can find it is a thread launched but another thread pool. Each Thread is in charge of pooling the Selector. Let us how it works
+Abstract class "AbstractPollingIoProcessor" is also an Runnable which will be launched but another thread pool. Each Thread is in charge of pooling the Selector. Let us how it works
 
 ```java
 
@@ -206,19 +169,18 @@ From the code **AbstractPollingIoProcessor** we can find it is a thread launched
      */
     private class Processor implements Runnable {
         public void run() {
-            assert (processorRef.get() == this);
-
-            int nSessions = 0;
-            lastIdleCheckTime = System.currentTimeMillis();
+            ...
 
             for (;;) {
                 try {
                    ... Code to handle timeout ...
 
-                    // Manage newly created session first
-                    nSessions += handleNewSessions();
-
-                    updateTrafficMask();
+                  
+                   	...
+					
+					//got select selector
+					int selected = select(SELECT_TIMEOUT);
+ 					...
 
                     // Now, if we have had some incoming or outgoing events,
                     // deal with them
@@ -261,7 +223,7 @@ From the code **AbstractPollingIoProcessor** we can find it is a thread launched
 
 ```
 
-Above code is is quite clear that each process would handle several sessions operation. it will exist if all the session is closed or disposing method is called. Processor handle 3 types of message:create new sesson, remove closed session and process incoming message. The first two part is quite easy so let look at how to process message
+Above code is is quite clear that each process would handle several sessions operation. it will exit if all the session is closed or disposing method is called. Processor handle 3 types of message:create new sesson, remove closed session and process incoming message. The first two part is quite easy so let look at how to process message
 
 ```java
 	/**
@@ -317,7 +279,7 @@ Above code is is quite clear that each process would handle several sessions ope
 
 ```
 
-From the above code we can found processor will call the filter chain metioned at begining to handle input message which stored in the buffer. But how the handler to be called?  That is because there is an default filter named **TailFilter** which will call handler
+From the above code we can found processor will call the filter chain metioned at begining to handle input message which stored in the buffer. But how the handler to be called?  That is because there is an default filter named "TailFilter" which will call handler
 
 ```java
 private static class TailFilter extends IoFilterAdapter {
@@ -343,7 +305,7 @@ private static class TailFilter extends IoFilterAdapter {
 }
 ```
 
-So far I have understanded how the message works in the MINA server side, it is better to provide a dragram to descripte the whole work flow, helping us under stand how mina-sshd works later. Because I am not familar how NIO works, all the descirption hasn't went into details which I need make up in future. Anyway,  It could be a good start
+So far we have understanded how the message worked in the MINA server side, but it is better to provide a dragram to descripte the whole work flow, helping us under stand how mina-sshd works later. Because I am not familar how NIO works, all the descirption hasn't went into details which I need make up in future. Anyway,  It could be a good start
 
 ![](https://www.planttext.com/plantuml/img/XP7TJiCm38Nl_HHMTmCNVO4AeMqWnAI19lO4QM9QYpJk4fUVjoVGJL1rY3idvtpsYRDCQg8EdGTGLazOxEamKB24jsoQQBe201vPzc9VI5VMKgyIiIolSLKdZSRgJhpdq6paf5Or1mT_oYDyyc8VnL9AzoOuJmachldW2irt-UExAikplg-xt9Sb0DJoZiLMf4SEg6qaumfSRBbfTUq7WddOtPZgc6CZT-oLuarhSeCAdpdIGvPDGqzaYL_9NNJZ-HAcvjzu9hifXNFiI8pxE8Fy6tRzePHdXq0-qs-HDJ-GWiEy1O1bhl9_Vm80)
 
@@ -352,7 +314,7 @@ So far I have understanded how the message works in the MINA server side, it is 
 
 
 ### MINA-SSHD###
-While reading MINA-SSHD, I was focusing on how MINA-SSHD extend MINA and how it provide API to customzation. Let start from a code example on how to provide a SSHD demo based on MINA-SSHD
+While reading MINA-SSHD, I was focusing on how MINA-SSHD extended MINA and how it provided API for customization. Let start from a code example on how to provide a SSHD demo based on MINA-SSHD
 
 ```java
 
@@ -419,12 +381,12 @@ public class SshSessionInstance
 
 ```
 
-If we based on MINA-SSHD we could only provide the implemtation of **Command** to handle input and output Stream. It is quite convience becacuse framework has wrapper a lot of steps for use including the authentication, timeout and so on. I want to understand a little more about how it works, that why I need read the code details.
+If we based on MINA-SSHD we need only provide the implemtation of "Command" to handle input and output Stream. It is quite convience becacuse framework will wrapper a lot of steps for us including the authentication, timeout and so on. 
 
 
 ### SSHD Start Code###
 
-Besides on the interface of MINA, sshd abstract several similar interfaces which need be noticed.  I think all those new interface is to let sshd can not only work based on MINA but also other types of network application framework or even NIO directly.  Anyway, There are following interface have same name with MINA which made me confused at begin of reading code.
+Besides the interface of MINA, sshd provided several similar interfaces which need be noticed.  I think all those new interface is to let sshd can not only work based on MINA but also on other types of network application framework or even NIO directly.  Anyway, There are following interface have same name with MINA which made me confused at begin of reading code.
 
 
 - IoAcceptor
@@ -465,7 +427,7 @@ public interface IoHandler {
 ```
 
 
-After notcing above new interface, we can start from the source code. All the sshd server start from the method start which will init two object Session Factory and Acceptor in the Class SshServer.  SshClient is another implementation to work as ssh client. I will not cover it in this article. According to the configuration,  sshd server can work based on either NiO or MiNA.  I will only cover MiNA part in this artcle. 
+After noticing above new interface, we can start from the source code. All the sshd server start from the method "start()" to init two object Session Factory and Acceptor in the Class SshServer.  According to the configuration, sshd server can work based on either NiO or MINA.  SshClient is another implementation to work as ssh client. I will not cover it in this article. 
 
 ```Java
 
@@ -495,13 +457,15 @@ After notcing above new interface, we can start from the source code. All the ss
 - IoAcceptor :  It is a wrapper of MiNA IoAccepter when working based on MINA framework. 
 
  
-Similar to MiNA Concept, Acceptor here is used to accept input message then dispatch to session to handle. It is actually an wrapper of MiNA IoAcceptor if using MiNA framework. Here is the part of code snip on how to wrapper it. From it we can found it is acutally a NioSocketAcceptor will be used to bind SocketAddress as Default MiNA framwork does.
+Similar to MINA Concept, Acceptor here is used to accept input message then dispatch to session to handle. It is actually an wrapper of MINA IoAcceptor if using MiNA framework. Here is the part of code snippet on how to wrapper it and how it is eventually use a NioSocketAcceptor and SimpleIoProcessorPool to bind SocketAddress as Default MiNA framwork does.
 
 
 ```java
 public class MinaAcceptor extends MinaService implements org.apache.sshd.common.io.IoAcceptor, IoHandler {
 ...
- protected IoAcceptor createAcceptor() {
+this.ioProcessor = new SimpleIoProcessorPool<NioSession>(NioProcessor.class, getNioWorkers());
+...
+protected IoAcceptor createAcceptor() {
         NioSocketAcceptor acceptor = new NioSocketAcceptor(ioProcessor);
         acceptor.setCloseOnDeactivation(false);
         acceptor.setReuseAddress(reuseAddress);
@@ -517,14 +481,7 @@ public class MinaAcceptor extends MinaService implements org.apache.sshd.common.
 }
 ```
 
-Notice that the IoProcessor is another resus of the MiNA implementation 
-
-```java
-this.ioProcessor = new SimpleIoProcessorPool<NioSession>(NioProcessor.class, getNioWorkers());
-```
-
-
-What more, MinaAcceptor extends MinaService which is also an MiNA IoHandler for wrapper SSHD IoHandler. 
+MinaAcceptor extends MinaService which is also an wrapper of MiNA IoHandler. 
 
 ```java
 public abstract class MinaService extends IoHandlerAdapter implements org.apache.sshd.common.io.IoService, IoHandler, Closeable {
@@ -820,6 +777,9 @@ if we need customsize shell behavior we can found how sshd call our method
 
 TODO: describe how the pipe stream work together with channel
 
+![](https://www.planttext.com/plantuml/img/TPF1QiCm38RlUWhHUzvWZ8QMiJ5Q0c6diOFdYiRKjeBjT7HZxpudJHedItEAfF__xNmYQn-42utH0445JLW8UH97yfZXXatDbcp0hH979mn0VPtYQgVs-Gf_0EFp_iAvb5G7TXz3et0ioVkayopiGLEiVyUOqbVR8MIlk6HveZ3BAfMfDIM91RCUPh6Xs3u96VMNlhbJLfJapafItya_VN1HqyjlPdScz-R9vKseUeUVMJPiBSaGNTF8JINYGDyIau-IZGzirBTeNSFNbHLfFRrdn6iYaxvwfKjx3R9ATiOs4c4aYm_PWRzizeZuZnGaT4RT8ZYuBM8K9i0WUSUi3PaG1fZMdMH65sPr7xF4Ub5wbppSdNI-wKRQcouTsKddh67gxJIORWpIudhQTNa0i2PxYF_F7m00)
+
+[Edit](https://www.planttext.com/?text=TPF1QiCm38RlUWhHUzvWZ8QMiJ5Q0c6diOFdYiRKjeBjT7HZxpudJHedItEAfF__xNmYQn-42utH0445JLW8UH97yfZXXatDbcp0hH979mn0VPtYQgVs-Gf_0EFp_iAvb5G7TXz3et0ioVkayopiGLEiVyUOqbVR8MIlk6HveZ3BAfMfDIM91RCUPh6Xs3u96VMNlhbJLfJapafItya_VN1HqyjlPdScz-R9vKseUeUVMJPiBSaGNTF8JINYGDyIau-IZGzirBTeNSFNbHLfFRrdn6iYaxvwfKjx3R9ATiOs4c4aYm_PWRzizeZuZnGaT4RT8ZYuBM8K9i0WUSUi3PaG1fZMdMH65sPr7xF4Ub5wbppSdNI-wKRQcouTsKddh67gxJIORWpIudhQTNa0i2PxYF_F7m00)
 
 
 
@@ -838,14 +798,30 @@ public interface Command {
     void destroy();
 }
 
+public interface PublickeyAuthenticator {
+
+    /**
+     * Check the validity of a public key.
+     *
+     * @param username the username
+     * @param key the key
+     * @param session the server session
+     * @return a boolean indicating if authentication succeeded or not
+     */
+    boolean authenticate(String username, PublicKey key, ServerSession session);
+
+}
+
 
 ```
 
 
+### Reference ###
 
-
-
-### Reference 
+- [Mina框架IoHandler与IoProcessor详解](http://shiyanjun.cn/archives/310.html) 
+- [Channels](http://net-ssh.github.io/ssh/v1/chapter-3.html)
+- [How to implement an ssh deamon](http://javajdk.net/tutorial/apache-mina-sshd-sshserver-example/)
+- [RFC4254](https://tools.ietf.org/html/rfc4254) 
 
 
 
