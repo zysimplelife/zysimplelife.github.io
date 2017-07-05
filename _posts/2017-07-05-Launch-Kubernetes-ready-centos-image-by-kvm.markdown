@@ -30,8 +30,8 @@ After downloading it, I found the default disk size is only 10GB which seem too 
 ### cloud-init configuration ###
 cloud init confgiuration for no-cloud need two file: user-data and meta-data.  here is my example 
 
-user-data
-'''yaml
+-user-data
+```yaml
 # Hostname management
 preserve_hostname: False
 hostname: $1
@@ -45,6 +45,7 @@ runcmd:
   - sed -i -e '/^PermitRootLogin/s/^.*$/PermitRootLogin no/' /etc/ssh/sshd_config
   - sed -i -e '/^PasswordAuthentication/s/^.*$/PasswordAuthentication yes/' /etc/ssh/sshd_config
   - [ yum, -y, remove, cloud-init ]
+  - reboot
 
 # update dns configration
 manage_resolv_conf: true
@@ -66,7 +67,6 @@ ssh_authorized_keys:
   - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDDC0nHpG/g7gmN0yOSF3IhJsTSc2Cp/24gWPQ3k8o0S6jql18SYpyvXp49hTErfQUdEmmQHrbxFZgIu+vQxmwnnurMVkQEi6tIRpx6HkBiM2h6bs3G0w7sYfXVEHwLW/rle1JBU6jPLRmrbem0uGu+B9XVItwOUyDK5tQSrxy6UZUBRcP/emigrGxCM0bIJokpat6EQqN7Wva1xSbZQBhyl80+6USxjpbxtnTsWN0ype4wt3BUHZ1qWr4KnXN9HD6kEeSYGQ8iOBix0fVsW/Lwu+BmVMySm5Q/AUttgRaxAD8cc4RrJvQ+vkw01sC9iIaABZQPOHLmid4NAPOCQNRdkEDIPC7AEVRZeS/qUTvtyNO1qPk7Lxxr5HtaXYPMte/IRcG7Vp0ryzcSoUGMZZcEco8TjdN1zYCAmreLS8YuJ/AcfwuzecnqOy0NzzCWu+fLzOpfdT3LIiiMfLij1OmHedJVyqPMiEcF2uFCQpLqMM+E4mQQd1iyiqiL8ruJBMtjBbiy7WXvyubHgq9VO/QrZWLrvJ/sKVSPdw6NAVeJc2JTM6U3GxS18MR3dVr/BCOrViKjU3yU+j0wRWVeZyAgfELuj2ocF9CyFgcfwiCZ4+ISL2Tl1VQ6zuLTfpPU9kW6BJLqD+MKMjxmkDQzfva/bHWwpOtUaAfG7+oFcjEuuw== charlie.zha@ericsson.com
 
 
-
 #set root password
 chpasswd:
   list: |
@@ -84,8 +84,8 @@ yum_repos:
         baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
         enabled: true
         failovermethod: priority
-        gpgcheck: true
-        gpgkey: https://packages.cloud.google.com/yum/doc/yum-key.gpg
+        gpgcheck: false
+        gpgkey: https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
         name: Kubernetes
 		
 		
@@ -96,16 +96,57 @@ packages:
  - [docker, kubelet, kubeadm, kubernetes-cni]
 
 
-'''
+```
 
+- meta-data
+```yaml
+
+instance-id: $1
+    local-hostname: $1
+    network-interfaces: |
+      auto eth0
+      iface eth0 inet static
+        address $2
+        netmask 255.255.255.0
+        gateway 10.170.13.1
+
+```
+
+
+### scripts ###
+
+After cloud-init confiugration being ready, we can make our script to load image.
+
+- create iso 
+```bash
+ # Create CD-ROM ISO with cloud-init config
+    echo "$(date -R) Generating ISO for cloud-init..."
+    genisoimage -output $CI_ISO -volid cidata -joliet -r $USER_DATA $META_DATA &>> $1.log
+
+```
+
+
+- load image 
+```bash
+virt-install --import --name $1 --ram $MEM --vcpus $CPUS --disk \
+    $DISK,format=qcow2,bus=virtio --disk $CI_ISO,device=cdrom --network \
+    bridge=br0,model=virtio --os-type=linux --os-variant=rhel7 --noautoconsole
+```
+
+- check machine is ready 
+```bash
+ping -w 30 -c 1 $2
+IP=$2
+echo "$(date -R) DONE. SSH to $1 using $IP with  username 'centos'."
+```
 
 
 ### Reference ###
 
-- [How checking out Kube DNS](https://rsmitty.github.io/Manually-Checking-Out-KubeDNS/) 
-- [What is flannel](http://datastart.cn/tech/2017/01/18/k8s-flannel.html)
-- [Install Kubernetes](http://blog.frognew.com/2017/04/kubeadm-install-kubernetes-1.6.html)
-- [Kubernetes installation gist](https://gist.github.com/patrickhuber/e600629a69fec64cfb45c63a23df4b3c)
+- [virt install centos](https://gist.github.com/giovtorres/0049cec554179d96e0a8329930a6d724#file-virt-install-centos)
+- [kvm bridge configuration](https://wiki.libvirt.org/page/Networking#Bridged_networking_.28aka_.22shared_physical_device.22.29)
+- [non-clould example](http://cloudinit.readthedocs.io/en/latest/topics/examples.html) 
+
 
 
 
