@@ -26,11 +26,9 @@ Almost all the those OS provider has put the cloud native image for downloading 
 
 After downloading it, I found the default disk size is only 10GB which seem too small to us.  I have to chooses: attach another disk or enlarge it.  Both of them are easy and I was trying to enlarge it. 
 
-
 ### cloud-init configuration ###
 cloud init confgiuration for no-cloud need two file: user-data and meta-data.  here is my example 
-
--user-data
+- user-data
 ```yaml
 # Hostname management
 preserve_hostname: False
@@ -115,10 +113,9 @@ After cloud-init confiugration being ready, we can make our script to load image
 
 - create iso 
 ```bash
- # Create CD-ROM ISO with cloud-init config
-    echo "$(date -R) Generating ISO for cloud-init..."
-    genisoimage -output $CI_ISO -volid cidata -joliet -r $USER_DATA $META_DATA &>> $1.log
-
+# Create CD-ROM ISO with cloud-init config
+echo "$(date -R) Generating ISO for cloud-init..."
+genisoimage -output $CI_ISO -volid cidata -joliet -r $USER_DATA $META_DATA &>> $1.log
 ```
 
 
