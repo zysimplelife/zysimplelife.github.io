@@ -94,13 +94,10 @@ yum_repos:
 # package version will be installed.
 packages:
  - [docker, kubelet, kubeadm, kubernetes-cni]
-
-
 ```
 
 - meta-data
 ```yaml
-
 instance-id: $1
     local-hostname: $1
     network-interfaces: |
@@ -109,7 +106,6 @@ instance-id: $1
         address $2
         netmask 255.255.255.0
         gateway 10.170.13.1
-
 ```
 
 
