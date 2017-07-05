@@ -28,8 +28,10 @@ After downloading it, I found the default disk size is only 10GB which seem too 
 
 ### cloud-init configuration ###
 cloud init confgiuration for no-cloud need two file: user-data and meta-data.  here is my example 
+
 - user-data
-```yaml
+
+```
 # Hostname management
 preserve_hostname: False
 hostname: $1
@@ -92,10 +94,12 @@ yum_repos:
 # package version will be installed.
 packages:
  - [docker, kubelet, kubeadm, kubernetes-cni]
+ 
 ```
 
 - meta-data
-```yaml
+
+```
 instance-id: $1
     local-hostname: $1
     network-interfaces: |
@@ -111,7 +115,8 @@ instance-id: $1
 
 After cloud-init confiugration being ready, we can make our script to load image.
 
-- create iso 
+- create iso
+ 
 ```bash
 # Create CD-ROM ISO with cloud-init config
 echo "$(date -R) Generating ISO for cloud-init..."
@@ -119,14 +124,16 @@ genisoimage -output $CI_ISO -volid cidata -joliet -r $USER_DATA $META_DATA &>> $
 ```
 
 
-- load image 
+- load image
+
 ```bash
 virt-install --import --name $1 --ram $MEM --vcpus $CPUS --disk \
     $DISK,format=qcow2,bus=virtio --disk $CI_ISO,device=cdrom --network \
     bridge=br0,model=virtio --os-type=linux --os-variant=rhel7 --noautoconsole
 ```
 
-- check machine is ready 
+- check machine is read
+ 
 ```bash
 ping -w 30 -c 1 $2
 IP=$2
