@@ -194,6 +194,16 @@ kubeadm  token list
 kubeadm join --token e7986d.e440de5882342711 192.168.61.41:6443
 ```
 
+### Install open vpn server as service 
+In order to access to PO directly in development environment, one of the solution is deploy a openvpn service in the kubernetest cluster. Luckly, there is an docker image ready in [github](https://github.com/pieterlange/kube-openvpn) for reference. Roughly, it can work by following guildline in it. 
+
+
+**Tips**:  
+- node in the cluster should be same version. I was using 1.7.1
+- Selinux will block container creating tun device, so disable it.
+- Secret volumn can be access from all nodes in the cluster 
+
+
 
 
 ### Reference ###
@@ -202,6 +212,7 @@ kubeadm join --token e7986d.e440de5882342711 192.168.61.41:6443
 - [What is flannel](http://datastart.cn/tech/2017/01/18/k8s-flannel.html)
 - [Install Kubernetes](http://blog.frognew.com/2017/04/kubeadm-install-kubernetes-1.6.html)
 - [Kubernetes installation gist](https://gist.github.com/patrickhuber/e600629a69fec64cfb45c63a23df4b3c)
+- [kube-openvpn](https://github.com/pieterlange/kube-openvpn)
 
 
 
