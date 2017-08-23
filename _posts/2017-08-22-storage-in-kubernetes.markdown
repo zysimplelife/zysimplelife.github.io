@@ -9,27 +9,26 @@
 ### kubernetes 中的stroage 
 有两个基本的概念 需要先了解的，一个是 persistent volumn 还有一个是persistent volumn claim。 官方定义如下  
 
-```
-A PersistentVolume (PV) is a piece of storage in the cluster that has been provisioned by an administrator. It is a resource in the cluster just like a node is a cluster resource. PVs are volume plugins like Volumes, but have a lifecycle independent of any individual pod that uses the PV. This API object captures the details of the implementation of the storage, be that NFS, iSCSI, or a cloud-provider-specific storage system.
+> A PersistentVolume (PV) is a piece of storage in the cluster that has been provisioned by an administrator. It is a resource in the cluster just like a node is a cluster resource. PVs are volume plugins like Volumes, but have a lifecycle independent of any individual pod that uses the PV. This API object captures the details of the implementation of the storage, be that NFS, iSCSI, or a cloud-provider-specific storage system.
+> 
+> 
+> A PersistentVolumeClaim (PVC) is a request for storage by a user. It is similar to a pod. Pods consume node resources and PVCs consume PV resources. Pods can request specific levels of resources (CPU and Memory). Claims can request specific size and access modes (e.g., can be mounted once read/write or many times read-only).
 
 
-A PersistentVolumeClaim (PVC) is a request for storage by a user. It is similar to a pod. Pods consume node resources and PVCs consume PV resources. Pods can request specific levels of resources (CPU and Memory). Claims can request specific size and access modes (e.g., can be mounted once read/write or many times read-only).
-```
+从上面的描述可以看出来， persistent volume 是使用个各种 volumn plugins 来创建的一个个 cluster 的**资源**。 在云环境中， 所有的东西都可理解为资源，所以这里的PV 就可以理解为由cluster administrator提供出来的一个个sotrage 资源。 通常这个需要提前准备好，这样po 才可以使用
 
-从上面的描述可以看出来， persistent volume 是使用个各种 volumn plugins 来创建的一个个 cluster 的资源。 在云环境中， 所有的东西都可理解为资源， 在，所以这里的PV 就可以理解为由cluster administrator提供出来的一个个sotrage 资源。 通常这个需要提前准备好，这样po 才可以使用
-
-PVC 则是另一个抽象，PVC 定义了一个 pod 需要多大的一个资源。 PVC 是从使用的角度就看待问题，因为用户在使用的时候并不知道cluster 如何提供 storage， 或者提供什么样的stroage。 但是对于我这个pod， 我是需要这样一个资源的。 在部署的时候，如果资源需求得不到满足，会报相应的错误。
+PVC 则是另一个**抽象**，PVC 定义了一个 pod 需要多大的一个资源。 PVC 是从使用的角度就看待问题，因为用户在使用的时候并不知道cluster 如何提供 storage， 或者提供什么样的stroage。 但是对于我这个pod， 我是需要这样一个资源的。 在部署的时候，如果资源需求得不到满足，会报相应的错误。
 
 
 #### pvc 是如何 和 pv 关联的 
 
 默认情况下， PVC 会根据 storage class 的定义来找到符合自己需求的定义。 如果没有定义storage class， 则会选择一个默认的 来bind。 官方定义如下 
 
-```
-hile PersistentVolumeClaims allow a user to consume abstract storage resources, it is common that users need PersistentVolumes with varying properties, such as performance, for different problems. Cluster administrators need to be able to offer a variety of PersistentVolumes that differ in more ways than just size and access modes, without exposing users to the details of how those volumes are implemented. For these needs there is the StorageClass resource.
 
-A StorageClass provides a way for administrators to describe the “classes” of storage they offer. Different classes might map to quality-of-service levels, or to backup policies, or to arbitrary policies determined by the cluster administrators. Kubernetes itself is unopinionated about what classes represent. This concept is sometimes called “profiles” in other storage systems.
-```
+> hile PersistentVolumeClaims allow a user to consume abstract storage resources, it is common that users need PersistentVolumes with varying properties, such as performance, for different problems. Cluster administrators need to be able to offer a variety of PersistentVolumes that differ in more ways than just size and access modes, without exposing users to the details of how those volumes are implemented. For these needs there is the StorageClass resource.
+> 
+> A StorageClass provides a way for administrators to describe the “classes” of storage they offer. Different classes might map to quality-of-service levels, or to backup policies, or to arbitrary policies determined by the cluster administrators. Kubernetes itself is unopinionated about what classes represent. This concept is sometimes called “profiles” in other storage systems.
+
 
 从上面的描述可以看到 StorageClass 仅仅是提供了一个让 adminstorator 来定义它提供的storage 类型， 比如快速，稳定等。 但是用户无法明确指定storage 的binding 关系。
 
@@ -38,14 +37,14 @@ A StorageClass provides a way for administrators to describe the “classes” o
 
 根据下面的描述方式， kubernetes 支持静态的和动态的使用pv.  静态的其实比较简单 ，动态的会使用很多。 按照官方的描述，admin 可以动态的创建一个PV 给PVC 使用。
 
-···
-Static
 
-A cluster administrator creates a number of PVs. They carry the details of the real storage which is available for use by cluster users. They exist in the Kubernetes API and are available for consumption.
-Dynamic
+> Static
+> 
+> A cluster administrator creates a number of PVs. They carry the details of the real storage which is available for use by cluster users. They exist in the Kubernetes API and are available for consumption.
+> Dynamic
+> 
+> When none of the static PVs the administrator created matches a user’s PersistentVolumeClaim, the cluster may try to dynamically provision a volume specially for the PVC. This provisioning is based on StorageClasses: the PVC must request a class and the administrator must have created and configured that class in order for dynamic provisioning to occur. Claims that request the class "" effectively disable dynamic provisioning for themselves.
 
-When none of the static PVs the administrator created matches a user’s PersistentVolumeClaim, the cluster may try to dynamically provision a volume specially for the PVC. This provisioning is based on StorageClasses: the PVC must request a class and the administrator must have created and configured that class in order for dynamic provisioning to occur. Claims that request the class "" effectively disable dynamic provisioning for themselves.
-···
 
 
 #### PV 的重用
