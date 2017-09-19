@@ -119,7 +119,52 @@ configurations.all {
 ```
 ### 多模块构建
 
-在SOA和微服务的浪潮下，将一个项目分解为多个模块已经是很通用的一种方式。在Gradle 和 maven 中都需要用一个 parent 的配置来定义common的部分。但是Gradle而在parent的build.gradle中可以使用allprojects和subprojects代码块来分别定义里面的配置是应用于所有项目还是子项目。对于子模块的定义是放置在setttings.gradle文件中的。在gradle的设计当中，每个模块都是Project的对象实例。而在parent build.gradle中通过allprojects或subprojects可以对这些对象进行各种操作。这无疑比Maven要灵活的多。不过这一个点目前没有感觉有多么大的好处。
+在SOA和微服务的浪潮下，将一个项目分解为多个模块已经是很通用的一种方式。在 maven 中都需要定义一个 parent 的配置来定义common的部分,而这个parent是没有什么具体作用的。而Gradle的推荐做法是在一个build.gradle中定义所有的project，这样就不会有分散在不同地方的配置。同事通过allprojects和subprojects代码块来分别定义里面的配置是应用于所有项目还是子项目。这无疑比Maven要灵活的多，但是不好的地方就是会出现一个非常巨大的build.gradle。 具体那种方式更好则仁者见仁的问题了。
+
+例如目录结构
+
+```
+core/src/main/java目录包含core模块的源代码。
+core/src/test/java目录包含core模块的单元测试。
+app/src/main/java目录包含app模块的源代码。
+app/src/main/resources目录包含app模块的资源文件。
+```
+对应的我们定义project如下
+```groove
+subprojects {
+    apply plugin: 'java'
+ 
+    repositories {
+        mavenCentral()
+    }
+}
+
+project(':app') {
+    
+}
+ 
+project(':core') {
+   
+}
+```
+这样就可以看到project的具体情况如下
+```
+> gradle projects
+:projects
+ 
+------------------------------------------------------------
+Root project
+------------------------------------------------------------
+ 
+Root project 'multi-project-build'
++--- Project ':app'
+--- Project ':core'
+ 
+To see a list of the tasks of a project, run gradle :tasks
+For example, try running gradle :app:tasks
+ 
+BUILD SUCCESSFUL
+```
 
 ### 构建模型
 
