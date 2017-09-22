@@ -8,20 +8,18 @@ categories: SourceCode, Kafka
 ### why kafka made there own socket server instead of using Netty 
 From Quora I got somehow an answer which seem accetpable  
 
-https://www.quora.com/Why-did-Kafka-developers-prefer-to-implement-their-own-socket-server-instead-of-using-Netty-Does-that-help-with-performance-Does-Kafka-implement-such-features-already
-
-Existing answers say that performance drove the decision - which is absolutely correct, but is only part of the reason.
-
-The rest of the reason is dependencies.
-
-In the old days, before Kafka 0.8.2. came out, Kafka server and clients were one big library - in order for your app to consume or produce anything from Kafka, you needed to include the whole thing as a dependency. Which means that we had to be very very careful not to make Kafka depend on any library that an application acting as Kafka client might depend on - because if we do, we may each depend on a different version and the road to compatibility hell is very short from there.
-
-So we stayed the hell away from any library that can possibly cause conflicts and implemented way too much ourselves. Kafka’s very own metric’s library, avoiding the popular Curator library for ZK, etc.
-
-These days we are still super strict on dependencies that go into client and common package, and a bit more lenient about the server.
-
-Was it the right choice? It’s hard to know for sure. Performance and no dependency-hell is great! But we are paying the price over and over - our own security layers (which Netty would have provided), very odd bugs caused by changes in low level networking code in different operating systems that take forever to debug (and we assume Netty already solved…).
-
+> Existing answers say that performance drove the decision - which is absolutely correct, but is only part of the reason.
+> 
+> The rest of the reason is dependencies.
+> 
+> In the old days, before Kafka 0.8.2. came out, Kafka server and clients were one big library - in order for your app to consume or produce anything from Kafka, you needed to include the whole thing as a dependency. Which means that we had to be very very careful not to make Kafka depend on any library that an application acting as Kafka client might depend on - because if we do, we may each depend on a different version and the road to compatibility hell is very short from there.
+> 
+> So we stayed the hell away from any library that can possibly cause conflicts and implemented way too much ourselves. Kafka’s very own metric’s library, avoiding the popular Curator library for ZK, etc.
+> 
+> These days we are still super strict on dependencies that go into client and common package, and a bit more lenient about the server.
+> 
+> Was it the right choice? It’s hard to know for sure. Performance and no dependency-hell is great! But we are paying the price over and over - our own security layers (which Netty would have provided), very odd bugs caused by changes in low level networking code in different operating systems that take forever to debug (and we assume Netty already solved…).
+> 
 
 #### NIO 框架架构
 虽然这部分感觉和 netty 应该基本差不多，但是但是我还是想分析一下看一下。 首先看一下传统的nio 架构 netty 以及 mina. 
@@ -29,28 +27,28 @@ Was it the right choice? It’s hard to know for sure. Performance and no depend
 #### 先介绍一下 reactor 模式 
 The Reactor Pattern
 
-The reactor pattern is one implementation technique of event-driven architecture. In simple terms, it uses a single threaded event loop blocking on resource-emitting events and dispatches them to corresponding handlers and callbacks.
+> The reactor pattern is one implementation technique of event-driven architecture. In simple terms, it uses a single threaded event loop blocking on resource-emitting events and dispatches them to corresponding handlers and callbacks.
 
 reactor 模式是一种 event-driven 架构的实现。 简单地说， 它使用一个单线程来循环监听由 resource 发出的事件，并且将这些事件交给相对应的 handler 以及 callback。
 
-There is no need to block on I/O, as long as handlers and callbacks for events are registered to take care of them. Events refer to instances like a new incoming connection, ready for read, ready for write, etc. Those handlers/callbacks may utilize a thread pool in multi-core environments.
+> There is no need to block on I/O, as long as handlers and callbacks for events are registered to take care of them. Events refer to instances like a new incoming connection, ready for read, ready for write, etc. Those handlers/callbacks may utilize a thread pool in multi-core environments.
 
 注意这里是不需要block I/O的， 因为 handler 以及callback 会处理这些。 此外所谓的event 在现实中可以是  new incoming connection, ready for read , ready for write 等等。 handler/callback 一般是会运行在多线程环境。
 
-This pattern decouples the modular application-level code from reusable reactor implementation.
-
-There are two important participants in the architecture of Reactor Pattern:
+> This pattern decouples the modular application-level code from reusable reactor implementation.
+> 
+> There are two important participants in the architecture of Reactor Pattern:
 
 这种模式有一个很大的好处是 将 应用层 的代码 和具体的 reactor 的时间分离开来。 这种模式下 主要功能分为两部分。
 
-1. Reactor
-
-A Reactor runs in a separate thread, and its job is to react to IO events by dispatching the work to the appropriate handler. It’s like a telephone operator in a company who answers calls from clients and transfers the line to the appropriate contact.
-2. Handlers
-
-A Handler performs the actual work to be done with an I/O event, similar to the actual officer in the company the client wants to speak to.
-
-A reactor responds to I/O events by dispatching the appropriate handler. Handlers perform non-blocking actions.
+> - Reactor
+> 
+> A Reactor runs in a separate thread, and its job is to react to IO events by dispatching the work to the appropriate handler. It’s like a telephone operator in a company who answers calls from clients and transfers the line to the appropriate contact.
+> - Handlers
+> 
+> A Handler performs the actual work to be done with an I/O event, similar to the actual officer in the company the client wants to speak to.
+> 
+> A reactor responds to I/O events by dispatching the appropriate handler. Handlers perform non-blocking actions.
 
 
 reactor 是一个独立的线程， 它除妖的工作就是针对 IO 的时间做出反应，并将其发送给对应的 handler。 可以想象成一个公司的接线员。
@@ -61,21 +59,21 @@ handler 则是做附体工作的地方。
 负责做 non-blocking的事件。
 
 
-The Intent of the Reactor Pattern
-
-The Reactor architectural pattern allows event-driven applications to demultiplex and dispatch service requests that are delivered to an application from one or more clients.
+> The Intent of the Reactor Pattern
+> 
+> The Reactor architectural pattern allows event-driven applications to demultiplex and dispatch service requests that are delivered to an application from one or more clients.
 
 Reactor 架构让application可以多路复用的处理客户端发送过来的application 
 
-One reactor will keep looking for events and will inform the corresponding event handler to handle it once the event gets triggered.
+> One reactor will keep looking for events and will inform the corresponding event handler to handle it once the event gets triggered.
 
 reactor会一直监控 event， 并且同事handler 去处理。
 
-The Reactor Pattern is a design pattern for synchronous demultiplexing and order of events as they arrive.
-
-
-It receives messages, requests, and connections coming from multiple concurrent clients and processes these posts sequentially using event handlers. The purpose of the Reactor design pattern is to avoid the common problem of creating a thread for each message, request, and connection. Then it receives events from a set of handlers and distributes them sequentially to the corresponding event handlers.
-
+> The Reactor Pattern is a design pattern for synchronous demultiplexing and order of events as they arrive.
+> 
+> 
+> It receives messages, requests, and connections coming from multiple concurrent clients and processes these posts sequentially using event handlers. The purpose of the Reactor design pattern is to avoid the common problem of creating a thread for each message, request, and connection. Then it receives events from a set of handlers and distributes them sequentially to the corresponding event handlers.
+> 
 reactor 接受从多个client来的消息，request，或者链接请求。这种方式可以避免为每一个message，request 或者connection创建独立的线程。而是再一系列的handler之间接受和发送event。
 
 
@@ -85,36 +83,36 @@ reactor 接受从多个client来的消息，request，或者链接请求。这�
 
 
 
-In Summary: Servers have to handle more than 10,000 concurrent clients, and threads cannot scale the connections using Tomcat, Glassfish, JBoss, or HttpClient.
+> In Summary: Servers have to handle more than 10,000 concurrent clients, and threads cannot scale the connections using Tomcat, Glassfish, JBoss, or HttpClient.
 
 
 在如上的模式下， server 可能会收到超过 10,000个并行的client，但是由于系统的限制，我们不可能在服务器里面创建 10,000个线程去处理。
 
 ![image](https://lh4.googleusercontent.com/2iHLg2EtmznV_RNkO2X_kMWF07_SdZMDIRsTN1nle6YoZrpTZc1ZDfDVTor5keXAPUh1HWxU3OgbHUfEfsUufvgu3w2ay9o-Ae464y74QkalMalXlQqoKVorWpZ09GKWWRmh2vjVfA)
 
-Basically, the standard Reactor allows a lead application with simultaneous events, while maintaining the simplicity of single threading. 
+> Basically, the standard Reactor allows a lead application with simultaneous events, while maintaining the simplicity of single threading. 
 
 简单的说，用reactor的方法可以让 application只用一个线程但是处理并发的event
 
-A demultiplexer is a circuit that has an input and more than one output. It is a circuit used when you want to send a signal to one of several devices.
+> A demultiplexer is a circuit that has an input and more than one output. It is a circuit used when you want to send a signal to one of several devices.
 
 demultiplexer 本来是的概念是一个基本电路，它允许一个输入，但是多个输出， 一般用来想将信号发给一个或者多个设备的情况。
 
 
-This description sounds similar to the description given to a decoder, but is used to select between many devices, while a demultiplexer is used to send a signal among many devices.
+> This description sounds similar to the description given to a decoder, but is used to select between many devices, while a demultiplexer is used to send a signal among many devices.
 
 
 听上去很像一个decoder，但是用来在在多个设备中进行选择。 
 
-A Reactor allows multiple tasks which block to be processed efficiently using a single thread. The Reactor also manages a set of event handlers. When called to perform a task, it connects with the handler that is available and makes it as active.
+> A Reactor allows multiple tasks which block to be processed efficiently using a single thread. The Reactor also manages a set of event handlers. When called to perform a task, it connects with the handler that is available and makes it as active.
 
 Reacotr 可以用一个线程，让多个会阻塞的task 有效率的执行， 同时reactor 也会管理多个handler。当开始处理一个task的时候， ractor会去调用可以用的handler，并且将他们激活。（注意，handler才会去真正读数据，而不是reactor，这个是和生产者消费者不一样的地方。
 
 
-The Cycle of Events:
-
-- Find all handlers that are active and unlocked or delegates this for a dispatcher implementation.
-- Execute each of these handlers sequentially until complete, or a point is reached where they are blocked. Completed Handlers are deactivated, allowing the event cycle to continue.
+> The Cycle of Events:
+> 
+> - Find all handlers that are active and unlocked or delegates this for a dispatcher implementation.
+> - Execute each of these handlers sequentially until complete, or a point is reached where they are blocked. Completed Handlers are deactivated, allowing the event cycle to continue.
 
 
 处理event的过程分为两部
@@ -191,12 +189,14 @@ nio的select()的时候，只要数据通道允许写，每次select()返回的O
 
 ### Kafka中的实现
 
-/**
- * An NIO socket server. The thread model is
- *   1 Acceptor thread that handles new connections
- *   N Processor threads that each have their own selectors and handle all requests from their connections synchronously
- *   M Handler threads that handle requests and produce responses back to the processor threads for writing.
- */
+
+
+> An NIO socket server. The thread model is
+> * 1 Acceptor thread that handles new connections
+> * N Processor threads that each have their own selectors and handle all requests from their connections synchronously
+> * M Handler threads that handle requests and produce responses back to the processor threads for writing.
+
+
 
 一个accpetor 来handle new connection， 多个processor thread， 其实也是一个 主从 selector 的结构。 M个 handler thread 来handle block 的操作，并且将response 返回给 processor 来写。
 
@@ -432,6 +432,7 @@ Selector这种线程模型或者思路其实可以用在很多环境下， 比�
 3. [netty中的概念]http://blog.onlycatch.com/post/Netty%E4%B8%AD%E7%9A%84%E5%87%A0%E4%B8%AA%E5%85%B3%E9%94%AE%E6%A6%82%E5%BF%B5
 4. [Scalable IO in Java] http://gee.cs.oswego.edu/dl/cpjslides/nio.pdf
 5. [NIO的解释](http://adblogcat.com/asynchronous-java-nio-for-dummies/)
+6. [Why did kfka prefer their own socket server ](https://www.quora.com/Why-did-Kafka-developers-prefer-to-implement-their-own-socket-server-instead-of-using-Netty-Does-that-help-with-performance-Does-Kafka-implement-such-features-already)
 
 
 
