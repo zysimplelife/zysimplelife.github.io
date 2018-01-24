@@ -36,7 +36,7 @@ Proetheus 的客户端提供了四种 core Metric Type, 这四种librairs 只是
 * Summary: Summary 和 histogram 有点类似,但是不会以住装图显示, 而是显示一个当前的值. 例如当前的cpu占用率,磁盘剩余空间等. 这种便于以静态图的方式显示
 
 
-#######Instances and jobs
+#### Instances and jobs
 最后两个重要的概念就是 instances 以及 jobs了. 本来在以前,只需要一个instance的概念可能就能解决大部分的问题了, 但是随着现代计算机服务的发展,基本上所有的服务都有scalability 和 failover的概念了,所以需要 增加一个 job的概念.  Instance 代表了某一个具体的数据, 而job 则是代表了一个cluster. 例如
 
 - job: api-server
@@ -46,8 +46,10 @@ Proetheus 的客户端提供了四种 core Metric Type, 这四种librairs 只是
  -- instance 4: 5.6.7.8:5671
   
   当prometheus 抓取数据的时候, 它会自动根据job 以及 instance 的信息对数据贴上标签. 默认的情况是 
-  job: The configured job name that the target belongs to.
-instance: The <host>:<port> part of the target's URL that was scraped.
+-- job: The configured job name that the target belongs to.
+-- instance: The <host>:<port> part of the target's URL that was scraped.
+
+
 
 
 
