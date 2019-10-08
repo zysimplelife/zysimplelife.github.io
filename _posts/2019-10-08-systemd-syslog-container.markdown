@@ -127,5 +127,5 @@ docker info --format '{{.LoggingDriver}}'
 1. [Writing syslog Daemons Which Cooperate Nicely With systemd](https://www.freedesktop.org/wiki/Software/systemd/syslog/)
 1. [rsyslog, journal or both](https://albertomolina.wordpress.com/2017/12/30/rsyslog-journal-or-both/)
 1. [Linux Logging with Systemd - The Ultimate Guide To Logging](https://www.loggly.com/ultimate-guide/linux-logging-with-systemd/)
-2. [Journald system and Docker logs \| Log Analysis | Log Monitoring by Loggly](https://www.loggly.com/docs/journald-system-and-docker-logs/)
+2. [Journald system and Docker logs ](https://www.loggly.com/docs/journald-system-and-docker-logs/)
 3. [Logging Architecture - Kubernetes](https://kubernetes.io/docs/concepts/cluster-administration/logging/)
