@@ -1,14 +1,12 @@
 ---
 layout: post
-title:  "Container的一些使用经验"
+title:  "Systemd AuditD syslog 以及和 container 的关系"
 date: 2019-10-08 15:10:00 +0000
 categories: Cloud
 ---
 
-
-Systemd AuditD syslog 以及和 container 的关系
-
 ### Systemd 和 syslog 的关系
+
 
 自从大部分的主流linux都开始使用 systemd 来作为 init system 以后, linux 系统中管理service  查看log 的方法都有所变化, 个人理解大家选择systemd的主要原因是可以大大减少启动的时间. 因为 systemd 启动service是并行的.
 
