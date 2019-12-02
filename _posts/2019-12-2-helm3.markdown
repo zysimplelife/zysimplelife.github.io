@@ -1,0 +1,53 @@
+---
+layout: post
+title:  "每周学习一点: helm 3 发布了"
+date: 2019-12-2 15:10:00 +0000
+categories: cloud, helm, kubernetes
+---
+
+### Helm 3 发布了
+
+最关心的问题是带来了什么好处
+
+#### 没有tiller 了
+
+ 因为 tiller 的存在, helm 其实无法很好的满足 security 的需求. tiller 相当与一个超级用户代理, 而访问 tiller则只需要很低的权限. 所以 tiller 在kubernetes 的用户权限管理框架 RBAC 上开了一个很大的后门.
+
+#### Improved Upgrade Strategy
+3-way Strategic Merge Patches: 三向 merge patch. 听上去很高大上, 理论上也是非常实用的东西. 之前helm在 upgrade 的时候, 是把当前最新的 chart 和 准备 升级的 chart 做对比. 然后 merge 那些不一样的地方.  但是带来的问题就是, 手动修改的部分无法被 track, 这样带来的直接问题就是无法回滚到之前的状态, 手动修改的那一部分会丢失. helm 3 在升级, 或者 回滚的时候会同时对比 live 的 状态, 然后将新的helm chart 和 live 的状态做 merge. 具体如何处理merge 冲突的问题则需要在具体使用中来式样了.
+
+#### Release Names are now scoped to the Namespace:
+在helm 3 中, 同样的release 可以被部署到不同的namespace 下面了.  在live产品中可能不是那么重要,但是在测试环境中, 还是可以带来很多便利的.  基本原理就是release数据存储到了对应的namespace中, 而不是之前的统一的tiller的 namespace 中
+
+#### Secrets 作为默认的方式来存储 release 信息
+用户应该还是可以改变, 不过毕竟从安全角度来看这个是很自然的选择
+
+#### Go import path changes
+普通用户不用非常关心, 但是如果使用 helm 的go library, Go import path 需要从 k8s.io/helm 修改为 helm.sh/helm/v3
+
+#### Validating Chart Values with JSONSchema
+个人觉得这个是很重要的功能, 意味着用户可以更容易的对 parameter 进行验证
+
+#### Consolidation of requirements.yaml into Chart.yaml
+简化用户需要关心的文件, 挺好的改变
+
+#### Name (or –generate-name) is now required on install
+简单的说就是必须要有名字了
+
+#### 不会自动创建namespaces
+在 helm 3 中, 不会像 helm 2 那样自动创建 namespace, 主要的原因是follow 其他的 kubernetes 的命令行
+
+#### .Capabilities object 被简化了
+这个主要的目的是可以给 helm chart 提供一些cluster 的信息. 比如 API version 一类的
+
+Capabilities: This provides information about what capabilities the Kubernetes cluster supports.
+Capabilities.APIVersions is a set of versions.
+Capabilities.APIVersions.Has $version indicates whether a version (e.g., batch/v1) or resource (e.g., apps/v1/Deployment) is available on the cluster.
+Capabilities.Kube.Version is the Kubernetes version.
+Capabilities.Kube is a short form for Kubernetes version.
+Capabilities.Kube.Major is the Kubernetes major version.
+Capabilities.Kube.Minor is the Kubernetes minor version.
+
+
+### Reference
+1. [CHANGES SINCE HELM 2](https://helm.sh/docs/faq/#changes-since-helm-2)
