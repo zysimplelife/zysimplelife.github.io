@@ -18,17 +18,17 @@ NetConf 貌似已经是各大公司网络管理公司都会支持的接口, 想�
 * urn:ietf:params:netconf:base:1.0
 * urn:ietf:params:netconf:base:1.1
 
-常见的标准 capability 有
+常见的标准 capability 如如下表格
 
 | capability | description |
-|-----------------------|--------------------|
+| ----------------------- | -------------------- |
 | writable-running | 此能力指明设备支持对<running/>配置数据库的写能力，即设备支持对运行的配置进行<edit-config>和<copy-config>操作。|
-|Candidate Configuration | 此能力指明设备支持<candidate/>配置数据库。|
-|Confirmed Commit | 此能力指明设备支持协议操作<commit>携带参数<confirmed>和<confirm-timeout>|
-|Rollback on Error |此能力指明设备具备错误回滚能力。如果一个错误的条件发生并产生一个错误元素<rpc-error>，那么服务器将会停止处理<edit-config>操作，并把指定的配置恢复至开始执行<edit-config>操作时的完整状态。|
-|Distinct Startup |此能力指明设备具备独立启动的能力。NETCONF Agent对参数进行可用性与一致性检查。|
-|Notification | NETCONF Notification机制是一种基于TCP连接主动通知机制，支持将设备的告警或事件通过notification消息有序的通知网管，解决了网管通过NETCONF协议对设备的告警或事件管理.|
-|Interleave | Interleave能力支持NETCONF会话多功能重用。用户可在同一个NETCONF会话上同时对设备进行维护操作和告警、事件管理，减少NETCONF连接资源和连接之间的切换，提升管理效率。|
+| Candidate Configuration | 此能力指明设备支持<candidate/>配置数据库。|
+| Confirmed Commit | 此能力指明设备支持协议操作<commit>携带参数<confirmed>和<confirm-timeout>|
+| Rollback on Error |此能力指明设备具备错误回滚能力。如果一个错误的条件发生并产生一个错误元素<rpc-error>，那么服务器将会停止处理<edit-config>操作，并把指定的配置恢复至开始执行<edit-config>操作时的完整状态。|
+| Distinct Startup |此能力指明设备具备独立启动的能力。NETCONF Agent对参数进行可用性与一致性检查。|
+| Notification | NETCONF Notification机制是一种基于TCP连接主动通知机制，支持将设备的告警或事件通过notification消息有序的通知网管，解决了网管通过NETCONF协议对设备的告警或事件管理.|
+| Interleave | Interleave能力支持NETCONF会话多功能重用。用户可在同一个NETCONF会话上同时对设备进行维护操作和告警、事件管理，减少NETCONF连接资源和连接之间的切换，提升管理效率。|
 
 #### database
 个人理解是存储 配置的地方,标准的database 有三种. 在理解这些 database 之前,先要有一个基本概念, 就是 这里的 database 是存在netconf中的, 而netconf只是一个接口, 具体的配置最终需要应用到设备上, 比如路由器.
