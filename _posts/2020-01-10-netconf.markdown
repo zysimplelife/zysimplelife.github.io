@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "netconf/yang 基本学习"
-date: 2020-12-2 15:10:00 +0000
+date: 2020-1-2 15:10:00 +0000
 categories: 每周学习一点, netconf, sdn
 ---
 
